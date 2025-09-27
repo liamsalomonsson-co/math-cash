@@ -42,6 +42,8 @@ export function isValidPosition(position: Position, mapWidth: number, mapHeight:
  */
 export function generateOperands(operation: MathOperation, difficulty: DifficultyLevel): number[] {
   const ranges: Record<DifficultyLevel, { min: number; max: number }> = {
+    infant: { min: 0, max: 5 },
+    toddler: { min: 0, max: 9 },
     beginner: { min: 1, max: 5 },
     easy: { min: 1, max: 10 },
     medium: { min: 5, max: 20 },

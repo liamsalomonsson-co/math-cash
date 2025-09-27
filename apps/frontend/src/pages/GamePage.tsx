@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import TileMap from '../components/TileMap';
 import ChallengeModal from '../components/ChallengeModal';
-import type { Position, MathChallenge } from '@math-cash/shared';
+import DirectionalControls from '../components/DirectionalControls';
+import type { Position, MathChallenge, Direction } from '@math-cash/shared';
 
 export default function GamePage() {
   const { state, dispatch } = useGame();
@@ -29,6 +30,55 @@ export default function GamePage() {
       setCurrentChallenge(tile.challenge);
       setIsChallengeModalOpen(true);
     }
+  };
+
+  const handlePlayerMove = (direction: Direction) => {
+    dispatch({
+      type: 'MOVE_PLAYER',
+      payload: { direction }
+    });
+    
+    // Check if player moved onto a challenge tile
+    const newPos = getNewPosition(direction);
+    if (newPos) {
+      const tile = state.session!.currentMap.tiles[newPos.y][newPos.x];
+      if (tile.challenge && !tile.isCompleted) {
+        setCurrentChallenge(tile.challenge);
+        setIsChallengeModalOpen(true);
+      }
+    }
+  };
+
+  const getNewPosition = (direction: Direction): Position | null => {
+    const currentPos = state.session!.player.currentPosition;
+    let newPosition: Position;
+
+    switch (direction) {
+      case 'up':
+        newPosition = { x: currentPos.x, y: Math.max(0, currentPos.y - 1) };
+        break;
+      case 'down':
+        newPosition = { x: currentPos.x, y: Math.min(state.session!.currentMap.height - 1, currentPos.y + 1) };
+        break;
+      case 'left':
+        newPosition = { x: Math.max(0, currentPos.x - 1), y: currentPos.y };
+        break;
+      case 'right':
+        newPosition = { x: Math.min(state.session!.currentMap.width - 1, currentPos.x + 1), y: currentPos.y };
+        break;
+    }
+
+    // Check if move would be to same position (boundary) or blocked tile
+    if (newPosition.x === currentPos.x && newPosition.y === currentPos.y) {
+      return null;
+    }
+    
+    const targetTile = state.session!.currentMap.tiles[newPosition.y][newPosition.x];
+    if (!targetTile.isAccessible) {
+      return null;
+    }
+
+    return newPosition;
   };
 
   const handleChallengeSubmit = (answer: number) => {
@@ -117,16 +167,21 @@ Next level coming up...`);
         onTileClick={handleTileClick}
       />
       
+      <DirectionalControls 
+        onMove={handlePlayerMove}
+        disabled={isChallengeModalOpen}
+      />
+      
       <div style={{ 
         color: 'white', 
         textAlign: 'center', 
         marginTop: '20px',
         fontSize: '14px'
       }}>
-        <p>🗺️ Follow the open paths from bottom-left to reach the boss in top-right!</p>
-        <p>📚 Click challenge tiles along the way to solve math problems!</p>
+        <p>🗺️ Use keyboard arrows/WASD or tap direction buttons to move!</p>
+        <p>📚 Step on challenge tiles to solve math problems and earn coins!</p>
         <p>🧱 Dark walls block your path - find the way around them!</p>
-        <p>👑 Defeat the boss to complete the level and unlock the next maze!</p>
+        <p>👑 Reach the boss in the top-right to complete the level!</p>
       </div>
 
       {currentChallenge && (

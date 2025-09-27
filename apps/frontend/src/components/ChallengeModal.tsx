@@ -83,6 +83,8 @@ export default function ChallengeModal({ challenge, isOpen, onSubmit, onClose }:
 
   const getDifficultyEmoji = () => {
     switch (challenge.difficulty) {
+      case 'infant': return '🍼';
+      case 'toddler': return '🧸';
       case 'beginner': return '🌱';
       case 'easy': return '⭐';
       case 'medium': return '🔥';

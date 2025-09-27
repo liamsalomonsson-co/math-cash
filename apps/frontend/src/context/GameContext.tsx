@@ -19,6 +19,36 @@ const generateTileMap = (id: string, width: number, height: number, difficulty: 
   const startY = height - 1; // Bottom-left
   const bossX = width - 1;
   const bossY = 0; // Top-right
+
+  const difficultySettings: Record<string, { operations: Array<'addition' | 'subtraction' | 'multiplication'>; min: number; max: number; reward: number; density: number }> = {
+    infant: { operations: ['addition'], min: 0, max: 5, reward: 5, density: 0.08 },
+    toddler: { operations: ['addition'], min: 0, max: 9, reward: 8, density: 0.12 },
+    beginner: { operations: ['addition', 'subtraction', 'multiplication'], min: 1, max: 5, reward: 10, density: 0.15 },
+    easy: { operations: ['addition', 'subtraction', 'multiplication'], min: 1, max: 10, reward: 15, density: 0.2 },
+    medium: { operations: ['addition', 'subtraction', 'multiplication'], min: 5, max: 20, reward: 25, density: 0.25 },
+    hard: { operations: ['addition', 'subtraction', 'multiplication'], min: 10, max: 50, reward: 40, density: 0.3 },
+    expert: { operations: ['addition', 'subtraction', 'multiplication'], min: 20, max: 100, reward: 60, density: 0.35 },
+  };
+  const getSettings = (level: string) => difficultySettings[level] ?? difficultySettings.beginner;
+  const settings = getSettings(difficulty);
+
+  const getOperands = (levelSettings: { min: number; max: number }) => {
+    const range = levelSettings.max - levelSettings.min + 1;
+    const randomOperand = () => Math.floor(Math.random() * range) + levelSettings.min;
+    return [randomOperand(), randomOperand()];
+  };
+
+  const computeAnswer = (operation: string, operands: number[]): number => {
+    switch (operation) {
+      case 'addition':
+        return operands[0] + operands[1];
+      case 'subtraction':
+        return Math.abs(operands[0] - operands[1]);
+      case 'multiplication':
+      default:
+        return operands[0] * operands[1];
+    }
+  };
   
   // Generate maze using recursive backtracking for connected paths
   const generateMaze = () => {
@@ -156,19 +186,25 @@ const generateTileMap = (id: string, width: number, height: number, difficulty: 
     }
   }
   
-  // Set up boss with challenge
+  const bossDifficulty = getNextDifficulty(difficulty);
+  const bossSettings = getSettings(bossDifficulty);
+  const bossOperations = bossSettings.operations;
+  const bossOperation = bossOperations[Math.floor(Math.random() * bossOperations.length)];
+  const bossOperands = getOperands(bossSettings);
+  const bossReward = bossSettings.reward * 3;
+
   tiles[bossY][bossX].challenge = {
     id: `boss-${Date.now()}`,
-    operation: 'multiplication' as any,
-    operands: [6, 7],
-    correctAnswer: 42,
-    difficulty: difficulty as any,
-    reward: 50,
+    operation: bossOperation as any,
+    operands: bossOperands,
+    correctAnswer: computeAnswer(bossOperation, bossOperands),
+    difficulty: bossDifficulty as any,
+    reward: bossReward,
   };
   
   // Add challenges to accessible tiles (excluding start and boss)
   let challengesPlaced = 0;
-  const maxChallenges = Math.floor(width * height * 0.08); // 8% of total tiles
+  const maxChallenges = Math.floor(width * height * settings.density);
   
   for (let y = 0; y < height && challengesPlaced < maxChallenges; y++) {
     for (let x = 0; x < width && challengesPlaced < maxChallenges; x++) {
@@ -179,29 +215,19 @@ const generateTileMap = (id: string, width: number, height: number, difficulty: 
           !(x === bossX && y === bossY) &&
           Math.random() < 0.25) { // 25% chance for accessible tiles
         
+        const operationPool = settings.operations;
+        const chosenOperation = operationPool[Math.floor(Math.random() * operationPool.length)];
+        const operands = getOperands(settings);
+
         tiles[y][x].type = 'challenge';
         tiles[y][x].challenge = {
           id: `challenge-${Date.now()}-${challengesPlaced}`,
-          operation: ['addition', 'subtraction', 'multiplication'][Math.floor(Math.random() * 3)] as any,
-          operands: [Math.floor(Math.random() * 10) + 1, Math.floor(Math.random() * 10) + 1],
-          correctAnswer: 0,
+          operation: chosenOperation as any,
+          operands,
+          correctAnswer: computeAnswer(chosenOperation, operands),
           difficulty: difficulty as any,
-          reward: 15,
+          reward: settings.reward,
         };
-        
-        // Calculate correct answer
-        const challenge = tiles[y][x].challenge!;
-        switch (challenge.operation) {
-          case 'addition':
-            challenge.correctAnswer = challenge.operands[0] + challenge.operands[1];
-            break;
-          case 'subtraction':
-            challenge.correctAnswer = Math.abs(challenge.operands[0] - challenge.operands[1]);
-            break;
-          case 'multiplication':
-            challenge.correctAnswer = challenge.operands[0] * challenge.operands[1];
-            break;
-        }
         challengesPlaced++;
       }
     }
@@ -220,14 +246,14 @@ const generateTileMap = (id: string, width: number, height: number, difficulty: 
 };
 
 const getNextDifficulty = (current: string) => {
-  const levels = ['beginner', 'easy', 'medium', 'hard', 'expert'];
+  const levels = ['infant', 'toddler', 'beginner', 'easy', 'medium', 'hard', 'expert'];
   const index = levels.indexOf(current);
   return levels[Math.min(index + 1, levels.length - 1)];
 };
 
 const getRecommendedMapSize = (_difficulty: string) => {
   // All maps are now 24x24 for maze-like experience
-  return { width: 24, height: 24 };
+  return { width: 12, height: 12 };
 };
 
 interface GameState {
@@ -254,8 +280,9 @@ const initialState: GameState = {
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'START_GAME': {
-      const mapSize = getRecommendedMapSize('beginner');
-      const currentMap = generateTileMap('map-1', mapSize.width, mapSize.height, 'beginner');
+  const startingDifficulty = 'infant';
+  const mapSize = getRecommendedMapSize(startingDifficulty);
+  const currentMap = generateTileMap('map-1', mapSize.width, mapSize.height, startingDifficulty);
       
       const player: PlayerState = {
         id: `player-${Date.now()}`,
@@ -305,6 +332,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         case 'right':
           newPosition = { x: Math.min(state.session.currentMap.width - 1, currentPos.x + 1), y: currentPos.y };
           break;
+      }
+
+      // Check if the new position is accessible (not blocked)
+      const targetTile = state.session.currentMap.tiles[newPosition.y][newPosition.x];
+      if (!targetTile.isAccessible) {
+        // Can't move to blocked tiles, return current state
+        return state;
       }
 
       return {

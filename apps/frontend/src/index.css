@@ -223,4 +223,109 @@ body {
   .modal {
     padding: 20px;
   }
+  
+  .direction-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+}
+
+/* Directional Controls */
+.directional-controls {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.mobile-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.direction-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #333;
+  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.direction-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.05);
+}
+
+.direction-btn:active {
+  transform: scale(0.95);
+  background: rgba(200, 200, 200, 1);
+}
+
+.direction-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.center-space {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-hint {
+  font-size: 10px;
+  color: white;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.desktop-hint,
+.mobile-hint {
+  display: block;
+}
+
+/* Responsive controls */
+@media (max-width: 768px) {
+  .desktop-hint {
+    display: none;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-hint {
+    display: none;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  .direction-btn {
+    width: 70px;
+    height: 70px;
+    font-size: 32px;
+  }
+  
+  .tile {
+    min-height: 25px;
+    min-width: 25px;
+  }
 }

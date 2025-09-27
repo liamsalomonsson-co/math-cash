@@ -5,7 +5,7 @@ export const MathOperation = z.enum(['addition', 'subtraction', 'multiplication'
 export type MathOperation = z.infer<typeof MathOperation>;
 
 // Difficulty levels that scale with map progression
-export const DifficultyLevel = z.enum(['beginner', 'easy', 'medium', 'hard', 'expert']);
+export const DifficultyLevel = z.enum(['infant', 'toddler', 'beginner', 'easy', 'medium', 'hard', 'expert']);
 export type DifficultyLevel = z.infer<typeof DifficultyLevel>;
 
 // Types of tiles on the game map

@@ -7,7 +7,9 @@ import type {
   MathOperation,
   TileType,
 } from './types';
-import { generateOperands, calculateAnswer, randomInt, getManhattanDistance } from './utils';
+import { generateOperands, calculateAnswer, randomInt } from './utils';
+
+const difficultyProgression: DifficultyLevel[] = ['infant', 'toddler', 'beginner', 'easy', 'medium', 'hard', 'expert'];
 
 /**
  * Generate a new tile map with procedural placement of challenges and boss
@@ -80,6 +82,8 @@ export function generateTileMap(
  */
 function getDifficultyMultiplier(difficulty: DifficultyLevel): number {
   const multipliers: Record<DifficultyLevel, number> = {
+    infant: 0.08,
+    toddler: 0.12,
     beginner: 0.15,
     easy: 0.20,
     medium: 0.25,
@@ -131,12 +135,24 @@ function placeChallengesOnPaths(
  * Generate a regular math challenge
  */
 function generateRegularChallenge(difficulty: DifficultyLevel): MathChallenge {
-  const operations: MathOperation[] = ['addition', 'subtraction', 'multiplication', 'division'];
+  const allowedOperationsByDifficulty: Record<DifficultyLevel, MathOperation[]> = {
+    infant: ['addition'],
+    toddler: ['addition'],
+    beginner: ['addition', 'subtraction', 'multiplication', 'division'],
+    easy: ['addition', 'subtraction', 'multiplication', 'division'],
+    medium: ['addition', 'subtraction', 'multiplication', 'division'],
+    hard: ['addition', 'subtraction', 'multiplication', 'division'],
+    expert: ['addition', 'subtraction', 'multiplication', 'division'],
+  };
+
+  const operations = allowedOperationsByDifficulty[difficulty];
   const operation = operations[randomInt(0, operations.length - 1)];
   const operands = generateOperands(operation, difficulty);
   const correctAnswer = calculateAnswer(operation, operands);
 
   const rewardMultipliers: Record<DifficultyLevel, number> = {
+    infant: 5,
+    toddler: 8,
     beginner: 10,
     easy: 15,
     medium: 25,
@@ -158,11 +174,8 @@ function generateRegularChallenge(difficulty: DifficultyLevel): MathChallenge {
  * Generate a boss challenge (harder and more rewarding)
  */
 function generateBossChallenge(difficulty: DifficultyLevel): MathChallenge {
-  // Boss challenges are always one difficulty level higher (with expert staying expert)
-  const bossDifficulty: DifficultyLevel = difficulty === 'expert' ? 'expert' : 
-    difficulty === 'hard' ? 'expert' :
-    difficulty === 'medium' ? 'hard' :
-    difficulty === 'easy' ? 'medium' : 'easy';
+  const currentIndex = difficultyProgression.indexOf(difficulty);
+  const bossDifficulty = difficultyProgression[Math.min(currentIndex + 1, difficultyProgression.length - 1)];
 
   const challenge = generateRegularChallenge(bossDifficulty);
   
@@ -178,9 +191,8 @@ function generateBossChallenge(difficulty: DifficultyLevel): MathChallenge {
  * Get the next difficulty level for map progression
  */
 export function getNextDifficulty(currentDifficulty: DifficultyLevel): DifficultyLevel {
-  const progression: DifficultyLevel[] = ['beginner', 'easy', 'medium', 'hard', 'expert'];
-  const currentIndex = progression.indexOf(currentDifficulty);
-  return progression[Math.min(currentIndex + 1, progression.length - 1)];
+  const currentIndex = difficultyProgression.indexOf(currentDifficulty);
+  return difficultyProgression[Math.min(currentIndex + 1, difficultyProgression.length - 1)];
 }
 
 /**
