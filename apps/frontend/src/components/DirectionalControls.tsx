@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import type { Direction } from '@math-cash/shared';
 
 interface DirectionalControlsProps {
@@ -8,42 +8,6 @@ interface DirectionalControlsProps {
 
 export default function DirectionalControls({ onMove, disabled = false }: DirectionalControlsProps) {
   const touchStartTimeRef = useRef<number>(0);
-
-  // Keyboard event handler
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (disabled) return;
-      
-      const key = event.key.toLowerCase();
-      
-      // Prevent default behavior for arrow keys and WASD
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
-        event.preventDefault();
-      }
-      
-      switch (key) {
-        case 'arrowup':
-        case 'w':
-          onMove('up');
-          break;
-        case 'arrowdown':
-        case 's':
-          onMove('down');
-          break;
-        case 'arrowleft':
-        case 'a':
-          onMove('left');
-          break;
-        case 'arrowright':
-        case 'd':
-          onMove('right');
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onMove, disabled]);
 
   // Mobile touch button handler
   const handleTouchMove = (direction: Direction) => {

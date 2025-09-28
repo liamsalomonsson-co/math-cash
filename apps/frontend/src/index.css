@@ -200,6 +200,18 @@ body {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.phaser-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phaser-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
 @media (max-width: 640px) {
   .tile {
     min-height: 16px;
