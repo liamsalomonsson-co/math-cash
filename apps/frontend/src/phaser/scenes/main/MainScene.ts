@@ -37,6 +37,16 @@ export class MainScene extends Phaser.Scene {
     super('MainScene');
   }
 
+  preload() {
+    this.load.image('wizard', '/assets/sprites/wizard.png');
+    
+    // Load mob sprite sheet - 4 sprites in a 2x2 grid (512x512 each in 1024x1024 image)
+    this.load.spritesheet('mobs', '/assets/sprites/mobs.png', {
+      frameWidth: 512,
+      frameHeight: 512
+    });
+  }
+
   create() {
     this.cameras.main.setBackgroundColor('#0b1e3f');
 
