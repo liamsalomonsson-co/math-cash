@@ -71,6 +71,8 @@ export const PlayerState = z.object({
   bestStreak: z.number().int().min(0).default(0),
   createdAt: z.date(),
   lastPlayedAt: z.date(),
+  // Power-ups
+  coinMultiplierCharges: z.number().int().min(0).default(0),
 });
 export type PlayerState = z.infer<typeof PlayerState>;
 

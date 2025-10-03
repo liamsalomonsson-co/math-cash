@@ -13,6 +13,8 @@ import { MenuController } from './menu/MenuController';
 import { HudController } from './hud/HudController';
 import { ChallengeController } from './challenge/ChallengeController';
 import { LevelOverlayController } from './level/LevelOverlayController';
+import { ShopController } from './shop/ShopController';
+import type { ShopItem } from './shop/ShopController';
 import { loadSession, saveSession } from './session/storage';
 import { FIXED_MAP_SIZE } from './constants';
 import type { GamePhase } from './types';
@@ -29,6 +31,7 @@ export class MainScene extends Phaser.Scene {
   private hud!: HudController;
   private challenge!: ChallengeController;
   private levelOverlay!: LevelOverlayController;
+  private shop!: ShopController;
 
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys?: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
@@ -54,6 +57,11 @@ export class MainScene extends Phaser.Scene {
     this.hud = new HudController(this);
     this.challenge = new ChallengeController(this);
     this.levelOverlay = new LevelOverlayController(this);
+    this.shop = new ShopController(this);
+    this.shop.initialize({
+      onPurchase: (item, session) => this.handlePurchase(item, session),
+      getSession: () => this.session,
+    });
     this.menu = new MenuController(this, {
       onStart: (name) => this.startNewGame(name),
       onContinue: () => this.continueSession(),
@@ -89,6 +97,7 @@ export class MainScene extends Phaser.Scene {
       this.hud.destroy();
       this.challenge.hide();
       this.levelOverlay.hide();
+      this.shop.destroy();
       this.board.destroy();
     });
 
@@ -105,7 +114,7 @@ export class MainScene extends Phaser.Scene {
       this.rebuildScene();
     }
 
-    if (this.challenge.isActive() || this.levelOverlay.isActive()) {
+    if (this.challenge.isActive() || this.levelOverlay.isActive() || this.shop.isActive()) {
       return;
     }
 
@@ -121,6 +130,7 @@ export class MainScene extends Phaser.Scene {
 
     this.challenge.handleResize(width, height);
     this.levelOverlay.handleResize(width, height);
+    this.shop.handleResize(width, height);
 
     if (this.phase === 'menu') {
       this.showMenu();
@@ -148,6 +158,7 @@ export class MainScene extends Phaser.Scene {
     this.hud.setVisible(false);
     this.challenge.hide();
     this.levelOverlay.hide();
+    this.shop.setVisible(false);
     if (this.session) {
       this.menu.setPendingName(this.session.player.name);
     }
@@ -166,13 +177,14 @@ export class MainScene extends Phaser.Scene {
         name: trimmed,
         currentPosition: map.startPosition,
         currentMapId: map.id,
-        currency: 0,
+        currency: 1000,
         completedMaps: [],
         totalChallengesCompleted: 0,
         currentStreak: 0,
         bestStreak: 0,
         createdAt: now,
         lastPlayedAt: now,
+        coinMultiplierCharges: 0,
       },
       currentMap: map,
       gameStartedAt: now,
@@ -184,6 +196,7 @@ export class MainScene extends Phaser.Scene {
     this.phase = 'play';
     this.menu.destroy();
     this.board.setVisible(true);
+    this.shop.setVisible(true);
     this.hud.render();
     this.hud.setVisible(true);
     this.pendingRebuild = true;
@@ -200,6 +213,7 @@ export class MainScene extends Phaser.Scene {
     this.phase = 'play';
     this.menu.destroy();
     this.board.setVisible(true);
+    this.shop.setVisible(true);
     this.hud.render();
     this.hud.setVisible(true);
     this.pendingRebuild = true;
@@ -364,7 +378,15 @@ export class MainScene extends Phaser.Scene {
     }
 
     tile.isCompleted = true;
-    this.session.player.currency += challenge.reward;
+    
+    // Apply coin multiplier if active
+    let coinsEarned = challenge.reward;
+    if (this.session.player.coinMultiplierCharges > 0) {
+      coinsEarned = challenge.reward * 2;
+      this.session.player.coinMultiplierCharges -= 1;
+    }
+    
+    this.session.player.currency += coinsEarned;
     this.session.player.totalChallengesCompleted += 1;
     this.session.player.currentStreak += 1;
     this.session.player.bestStreak = Math.max(
@@ -452,6 +474,26 @@ export class MainScene extends Phaser.Scene {
 
     this.session = session;
     this.menu.setPendingName(session.player.name);
+  }
+
+  private handlePurchase(item: ShopItem, session: GameSession) {
+    if (session.player.currency >= item.price) {
+      session.player.currency -= item.price;
+      session.player.lastPlayedAt = new Date();
+      
+      // Handle item effects
+      switch (item.id) {
+        case 'coin-multiplier':
+          session.player.coinMultiplierCharges += 5; // Add 5 charges (2x coins for 5 challenges)
+          break;
+        // TODO: Implement other items here
+        default:
+          break;
+      }
+      
+      this.hud.update(session);
+      this.persistSession();
+    }
   }
 
   private persistSession() {

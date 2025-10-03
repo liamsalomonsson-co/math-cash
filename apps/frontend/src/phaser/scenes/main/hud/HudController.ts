@@ -89,7 +89,13 @@ export class HudController {
 
     const { player, currentMap } = session;
     this.texts.player.setText(`${player.name}'s Adventure`);
-    this.texts.currency.setText(`💰 Coins: ${player.currency}`);
+    
+    // Show coin multiplier status if active
+    const coinText = player.coinMultiplierCharges > 0 
+      ? `💰 Coins: ${player.currency} (2x ×${player.coinMultiplierCharges})`
+      : `💰 Coins: ${player.currency}`;
+    this.texts.currency.setText(coinText);
+    
     this.texts.streak.setText(`🔥 Current Streak: ${player.currentStreak}`);
     this.texts.difficulty.setText(`🎯 Level: ${currentMap.difficulty}`);
   }
