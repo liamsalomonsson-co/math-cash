@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { GameSession } from '@math-cash/shared';
+import type { GameSession } from '../../../../lib';
 import { MENU_BG_COLOR, MENU_BORDER_COLOR, MENU_BUTTON_COLOR, MENU_BUTTON_DISABLED } from '../constants';
 import { createMenuButton, createNameInput, createSessionStats, MenuButtonControl, NameInputControl } from './components';
 
@@ -45,7 +45,7 @@ export class MenuController {
     const container = this.scene.add.container(width / 2, height / 2);
     const panelWidth = Math.min(width * 0.85, 540);
     const panelHeight = Math.min(height * 0.9, 620);
-  const contentWidth = Math.min((this.scene.scale.width || 640) * 0.7, 420);
+    const contentWidth = Math.min((this.scene.scale.width || 640) * 0.7, 420);
 
     const panel = this.scene.add.rectangle(0, 0, panelWidth, panelHeight, MENU_BG_COLOR, 0.92);
     panel.setOrigin(0.5, 0.5);
@@ -67,7 +67,7 @@ export class MenuController {
       })
       .setOrigin(0.5, 0.5);
 
-  const nameInputY = subtitle.y + 90;
+    const nameInputY = subtitle.y + 90;
     const nameInput = createNameInput(this.scene, {
       y: nameInputY,
       width: contentWidth,
@@ -143,7 +143,7 @@ export class MenuController {
     }
 
     const hint = this.scene.add
-      .text(0, panelHeight / 2 - 40, 'Tip: Use arrow keys or WASD once the game starts. Press M to return here.', {
+      .text(0, panelHeight / 2 - 50, 'Tip: Use arrow keys or WASD once the game starts. Press M to return here.', {
         fontFamily: 'Poppins, sans-serif',
         fontSize: '16px',
         color: '#9fb3d9',

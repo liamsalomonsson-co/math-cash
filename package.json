@@ -4,7 +4,6 @@
   "description": "A tile-based math adventure game for kids",
   "private": true,
   "workspaces": [
-    "packages/*",
     "apps/*"
   ],
   "scripts": {

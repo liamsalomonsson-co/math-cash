@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { GameSession } from '@math-cash/shared';
+import type { GameSession } from '../../../../../lib';
 import { MENU_BORDER_COLOR } from '../../constants';
 
 interface SessionStatsOptions {

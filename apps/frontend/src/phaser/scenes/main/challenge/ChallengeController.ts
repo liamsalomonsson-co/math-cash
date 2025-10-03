@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { MathChallenge, Tile } from '@math-cash/shared';
+import type { MathChallenge, Tile } from '../../../../lib';
 import { ENCOURAGEMENTS } from '../constants';
 
 interface ChallengeCallbacks {

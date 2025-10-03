@@ -1,4 +1,4 @@
-import type { GameSession } from '@math-cash/shared';
+import type { GameSession } from '../../../../lib';
 import { STORAGE_KEY } from '../constants';
 
 export function loadSession(): GameSession | null {

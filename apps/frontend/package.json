@@ -11,8 +11,8 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@math-cash/shared": "file:../../packages/shared",
-    "phaser": "^3.90.0"
+    "phaser": "^3.90.0",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.0.0",

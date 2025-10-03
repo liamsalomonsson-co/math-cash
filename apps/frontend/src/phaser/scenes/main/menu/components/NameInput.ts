@@ -19,36 +19,47 @@ export interface NameInputControl {
 
 export function createNameInput(scene: Phaser.Scene, options: NameInputOptions): NameInputControl {
   const { y, width, initialValue, onInput, onSubmit } = options;
-  const input = document.createElement('input');
+  const height = 56;
+  
+  const container = scene.add.container(0, y);
 
+  // Background rectangle similar to MenuButton
+  const background = scene.add.rectangle(0, 0, width, height, 0x1b2d44, 0.85);
+  background.setOrigin(0.5, 0.5);
+  background.setStrokeStyle(2, 0x4cc9f0, 0.4);
+
+  // Create minimal input element that fills the background
+  const input = document.createElement('input');
   input.type = 'text';
   input.value = initialValue;
   input.placeholder = 'Enter your adventurer name';
   input.maxLength = 20;
   input.autocomplete = 'off';
   input.spellcheck = false;
+  
+  // Minimal inline styles - match background size exactly
   Object.assign(input.style, {
-    width: '100%',
-    maxWidth: '100%',
+    width: `${width}px`,
+    height: `${height}px`,
     padding: '14px 18px',
     fontSize: '20px',
-    borderRadius: '12px',
     border: 'none',
     outline: 'none',
     textAlign: 'center',
-    background: 'rgba(27,45,68,0.85)',
+    background: 'transparent',
     color: '#ffffff',
     fontFamily: 'Poppins, sans-serif',
-    boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
-    display: 'block',
-    margin: '0 auto',
+    boxSizing: 'border-box',
+    top: '75px',
+    right: '150px',
   } as Partial<CSSStyleDeclaration>);
 
-  const container = scene.add.container(0, y);
+  // Add DOM element at container center
   const dom = scene.add.dom(0, 0, input);
   dom.setOrigin(0.5, 0.5);
-  container.add(dom);
-  container.setSize(width, 56);
+  
+  container.add([background, dom]);
+  container.setSize(width, height);
 
   const handleInput = (event: Event) => {
     const target = event.target as HTMLInputElement;
@@ -84,7 +95,14 @@ export function createNameInput(scene: Phaser.Scene, options: NameInputOptions):
   };
 
   const setWidth = (nextWidth: number) => {
-    container.setSize(nextWidth, container.height ?? 56);
+    const nextHeight = 56;
+    container.setSize(nextWidth, nextHeight);
+    background.setSize(nextWidth, nextHeight);
+    const inputElement = dom.node as HTMLInputElement;
+    if (inputElement && inputElement.style) {
+      inputElement.style.width = `${nextWidth}px`;
+      inputElement.style.height = `${nextHeight}px`;
+    }
   };
 
   const getValue = () => input.value;

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { GameSession } from '@math-cash/shared';
+import type { GameSession } from '../../../../lib';
 
 interface HudTexts {
   player: Phaser.GameObjects.Text;
@@ -42,19 +42,19 @@ export class HudController {
       color: '#ffffff',
     });
 
-    const currency = this.scene.add.text(24, 52, '', {
+    const currency = this.scene.add.text(this.scene.scale.width / 3, 20, '', {
       fontFamily: 'Poppins, sans-serif',
       fontSize: '18px',
       color: '#f4d35e',
     });
 
-    const streak = this.scene.add.text(24, 80, '', {
+    const streak = this.scene.add.text(currency.x + 100, 20, '', {
       fontFamily: 'Poppins, sans-serif',
       fontSize: '18px',
       color: '#f4f1de',
     });
 
-    const difficulty = this.scene.add.text(24, 108, '', {
+    const difficulty = this.scene.add.text(streak.x + 180, 20, '', {
       fontFamily: 'Poppins, sans-serif',
       fontSize: '18px',
       color: '#bde0fe',
@@ -65,7 +65,7 @@ export class HudController {
       fontSize: '16px',
       color: '#cbd5f5',
       align: 'center',
-      wordWrap: { width: Math.min(this.scene.scale.width - 80, 520) },
+      wordWrap: { width: Math.min(this.scene.scale.width - 0, 520) },
     });
 
     const menuHint = this.scene.add.text(0, 0, 'Press M to open the menu at any time.', {
@@ -102,10 +102,10 @@ export class HudController {
     const centerX = this.scene.scale.width / 2;
     const bottomY = (this.scene.scale.height || Number(this.scene.game.config.height) || 640) - 24;
 
-    this.texts.instructions.setPosition(centerX, bottomY - 40);
+    this.texts.instructions.setPosition(centerX, bottomY - 15);
     this.texts.instructions.setOrigin(0.5, 1);
 
-    this.texts.menuHint.setPosition(centerX, bottomY);
+    this.texts.menuHint.setPosition(centerX, bottomY + 15);
     this.texts.menuHint.setOrigin(0.5, 1);
   }
 }

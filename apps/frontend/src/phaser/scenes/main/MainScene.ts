@@ -6,8 +6,8 @@ import type {
   MathChallenge,
   Position,
   Tile,
-} from '@math-cash/shared';
-import { generateTileMap, getNextDifficulty } from '@math-cash/shared';
+} from '../../../lib';
+import { generateTileMap, getNextDifficulty } from '../../../lib';
 import { BoardController } from './board/BoardController';
 import { MenuController } from './menu/MenuController';
 import { HudController } from './hud/HudController';

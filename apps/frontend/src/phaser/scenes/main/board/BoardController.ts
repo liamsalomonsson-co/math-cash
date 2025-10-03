@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { TileMap, Tile, Position } from '@math-cash/shared';
+import type { TileMap, Tile, Position } from '../../../../lib';
 import { PLAYER_COLOR, TILE_GAP } from '../constants';
 
 export class BoardController {
