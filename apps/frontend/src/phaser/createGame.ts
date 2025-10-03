@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MainScene } from './scenes/MainScene';
+import { MainScene } from './scenes/main/MainScene';
 import type { PhaserGameHandle } from './types';
 
 const BASE_WIDTH = 640;

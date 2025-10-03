@@ -1,9 +1,8 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [],
   resolve: {
     alias: {
       '@math-cash/shared': path.resolve(__dirname, '../../packages/shared/src'),

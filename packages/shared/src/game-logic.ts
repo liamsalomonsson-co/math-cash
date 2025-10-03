@@ -60,7 +60,7 @@ export function generateTileMap(
 
   // Calculate number of challenges based on map size and difficulty
   const accessibleTiles = mazePaths.flat().filter(Boolean).length;
-  const challengeCount = Math.floor(accessibleTiles * getDifficultyMultiplier(difficulty));
+  const challengeCount = Math.floor(accessibleTiles * 0.3);
 
   // Place regular challenges on accessible paths
   placeChallengesOnPaths(tiles, challengeCount, difficulty, startPosition, bossPosition, mazePaths);
@@ -75,22 +75,6 @@ export function generateTileMap(
     startPosition,
     isCompleted: false,
   };
-}
-
-/**
- * Get challenge density multiplier based on difficulty
- */
-function getDifficultyMultiplier(difficulty: DifficultyLevel): number {
-  const multipliers: Record<DifficultyLevel, number> = {
-    infant: 0.08,
-    toddler: 0.12,
-    beginner: 0.15,
-    easy: 0.20,
-    medium: 0.25,
-    hard: 0.30,
-    expert: 0.35,
-  };
-  return multipliers[difficulty];
 }
 
 /**
@@ -250,8 +234,10 @@ function generateMazePaths(width: number, height: number, start: Position, end: 
   maze[start.y][start.x] = true;
   maze[end.y][end.x] = true;
   
-  // Create guaranteed path from start to end
-  createDirectPath(maze, start, end, width, height);
+  // Verify that the carved maze connects start to end; fall back to carving a random corridor if not
+  if (!isPathAvailable(maze, start, end, width, height)) {
+    carveFallbackPath(maze, start, end);
+  }
   
   // Add some extra openings for more interesting paths
   addExtraOpenings(maze, width, height);
@@ -260,22 +246,75 @@ function generateMazePaths(width: number, height: number, start: Position, end: 
 }
 
 /**
- * Create a guaranteed path from start to end
+ * Determine if start and end are connected through currently open tiles
  */
-function createDirectPath(maze: boolean[][], start: Position, end: Position, _width: number, _height: number) {
+function isPathAvailable(maze: boolean[][], start: Position, end: Position, width: number, height: number): boolean {
+  const visited = Array.from({ length: height }, () => Array(width).fill(false));
+  const queue: Position[] = [start];
+  visited[start.y][start.x] = true;
+
+  const deltas = [
+    { x: 0, y: -1 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 },
+  ];
+
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (current.x === end.x && current.y === end.y) {
+      return true;
+    }
+
+    for (const delta of deltas) {
+      const nextX = current.x + delta.x;
+      const nextY = current.y + delta.y;
+      if (
+        nextX >= 0 &&
+        nextX < width &&
+        nextY >= 0 &&
+        nextY < height &&
+        !visited[nextY][nextX] &&
+        maze[nextY][nextX]
+      ) {
+        visited[nextY][nextX] = true;
+        queue.push({ x: nextX, y: nextY });
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Fall back to a randomized monotonic corridor if the maze failed to connect start and end
+ */
+function carveFallbackPath(maze: boolean[][], start: Position, end: Position) {
   let currentX = start.x;
   let currentY = start.y;
-  
-  // Move towards end, creating path
+  maze[currentY][currentX] = true;
+
   while (currentX !== end.x || currentY !== end.y) {
-    maze[currentY][currentX] = true;
-    
-    if (currentX < end.x) currentX++;
-    else if (currentX > end.x) currentX--;
-    else if (currentY < end.y) currentY++;
-    else if (currentY > end.y) currentY--;
+    const candidates: Position[] = [];
+
+    if (currentX !== end.x) {
+      const stepX = currentX < end.x ? 1 : -1;
+      candidates.push({ x: currentX + stepX, y: currentY });
+    }
+
+    if (currentY !== end.y) {
+      const stepY = currentY < end.y ? 1 : -1;
+      candidates.push({ x: currentX, y: currentY + stepY });
+    }
+
+    const next = candidates[randomInt(0, candidates.length - 1)];
+
+    maze[next.y][next.x] = true;
+
+    currentX = next.x;
+    currentY = next.y;
   }
-  
+
   maze[end.y][end.x] = true;
 }
 
