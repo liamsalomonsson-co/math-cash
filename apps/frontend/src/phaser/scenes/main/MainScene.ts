@@ -345,6 +345,8 @@ export class MainScene extends Phaser.Scene {
       const key = `${currentPosition.x},${currentPosition.y}:${mob.id}`;
       if (this.lastChallengeKey !== key) {
         this.lastChallengeKey = key;
+        // Pause mob movement during challenge
+        this.mob.pauseMovement();
         // Create a temporary tile object with the mob's challenge
         const tempTile = {
           position: currentPosition,
@@ -377,6 +379,8 @@ export class MainScene extends Phaser.Scene {
     this.persistSession();
     this.lastChallengeKey = null;
     this.previousPosition = null;
+    // Resume mob movement after challenge is cancelled
+    this.mob.resumeMovement();
   }
 
   private handleChallengeFailure(penalty: number) {
@@ -401,6 +405,8 @@ export class MainScene extends Phaser.Scene {
     this.persistSession();
     this.lastChallengeKey = null;
     this.previousPosition = null;
+    // Resume mob movement after challenge failure
+    this.mob.resumeMovement();
   }
 
   private completeMobChallenge(mob: Mob) {
@@ -438,6 +444,8 @@ export class MainScene extends Phaser.Scene {
     this.checkMapCompletion();
     this.lastChallengeKey = null;
     this.previousPosition = null;
+    // Resume mob movement after challenge completion
+    this.mob.resumeMovement();
   }
 
   private checkMapCompletion() {

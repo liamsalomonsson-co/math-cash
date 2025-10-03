@@ -3,7 +3,7 @@ import type { Mob, Position, TileMap } from '../../../../lib';
 
 export class MobController {
   private mobSprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
-  private moveTimer?: Phaser.Time.TimerEvent;
+  private mobTimers: Map<string, Phaser.Time.TimerEvent> = new Map();
   private tileSize = 0;
   private offsetX = 0;
   private offsetY = 0;
@@ -12,7 +12,8 @@ export class MobController {
   constructor(private readonly scene: Phaser.Scene) {}
 
   destroy() {
-    this.moveTimer?.destroy();
+    this.mobTimers.forEach((timer) => timer.destroy());
+    this.mobTimers.clear();
     this.mobSprites.forEach((sprite) => sprite.destroy());
     this.mobSprites.clear();
   }
@@ -41,14 +42,14 @@ export class MobController {
    * Start the automatic movement timer
    */
   startMovement(map: TileMap, onMobMoved?: () => void) {
-    this.moveTimer?.destroy();
+    this.stopMovement();
     this.onMobMoved = onMobMoved;
 
-    // Move mobs every 1-2 seconds randomly
-    this.moveTimer = this.scene.time.addEvent({
-      delay: Phaser.Math.Between(1000, 2000),
-      callback: () => this.moveMobs(map),
-      loop: true,
+    // Create individual timer for each mob with random delay
+    map.mobs.forEach((mob) => {
+      if (!mob.isCompleted) {
+        this.createMobTimer(mob, map);
+      }
     });
   }
 
@@ -56,8 +57,22 @@ export class MobController {
    * Stop the automatic movement timer
    */
   stopMovement() {
-    this.moveTimer?.destroy();
-    this.moveTimer = undefined;
+    this.mobTimers.forEach((timer) => timer.destroy());
+    this.mobTimers.clear();
+  }
+
+  /**
+   * Pause all mob movement (during challenges, overlays, etc.)
+   */
+  pauseMovement() {
+    this.mobTimers.forEach((timer) => timer.paused = true);
+  }
+
+  /**
+   * Resume all mob movement
+   */
+  resumeMovement() {
+    this.mobTimers.forEach((timer) => timer.paused = false);
   }
 
   /**
@@ -82,6 +97,55 @@ export class MobController {
     ) || null;
   }
 
+  private createMobTimer(mob: Mob, map: TileMap) {
+    // Random initial delay so mobs don't all move at once
+    const initialDelay = Phaser.Math.Between(0, 1000);
+    const moveDelay = Phaser.Math.Between(1000, 2000);
+
+    this.scene.time.delayedCall(initialDelay, () => {
+      // Create the repeating timer after initial delay
+      const repeatTimer = this.scene.time.addEvent({
+        delay: moveDelay,
+        callback: () => this.moveSingleMob(mob, map),
+        loop: true,
+      });
+      this.mobTimers.set(mob.id, repeatTimer);
+    });
+  }
+
+  private moveSingleMob(mob: Mob, map: TileMap) {
+    if (mob.isCompleted) {
+      // Stop timer for completed mobs
+      const timer = this.mobTimers.get(mob.id);
+      if (timer) {
+        timer.destroy();
+        this.mobTimers.delete(mob.id);
+      }
+      return;
+    }
+
+    const newPosition = this.getRandomAdjacentPosition(map, mob.position);
+    if (newPosition) {
+      mob.position = newPosition;
+      this.updateMobSpritePosition(mob);
+
+      // Notify that a mob has moved (for collision detection)
+      if (this.onMobMoved) {
+        this.onMobMoved();
+      }
+    }
+
+    // Randomize next move interval for this specific mob
+    const timer = this.mobTimers.get(mob.id);
+    if (timer) {
+      timer.reset({
+        delay: Phaser.Math.Between(1000, 2000),
+        callback: () => this.moveSingleMob(mob, map),
+        loop: true,
+      });
+    }
+  }
+
   private createMobSprite(mob: Mob) {
     const x = this.offsetX + mob.position.x * this.tileSize + this.tileSize / 2;
     const y = this.offsetY + mob.position.y * this.tileSize + this.tileSize / 2;
@@ -94,34 +158,6 @@ export class MobController {
     sprite.setDisplaySize(targetSize, targetSize);
 
     this.mobSprites.set(mob.id, sprite);
-  }
-
-  private moveMobs(map: TileMap) {
-    map.mobs.forEach((mob) => {
-      if (mob.isCompleted) {
-        return;
-      }
-
-      const newPosition = this.getRandomAdjacentPosition(map, mob.position);
-      if (newPosition) {
-        mob.position = newPosition;
-        this.updateMobSpritePosition(mob);
-      }
-    });
-
-    // Notify that mobs have moved (for collision detection)
-    if (this.onMobMoved) {
-      this.onMobMoved();
-    }
-
-    // Randomize next move interval
-    if (this.moveTimer) {
-      this.moveTimer.reset({
-        delay: Phaser.Math.Between(1000, 2000),
-        callback: () => this.moveMobs(map),
-        loop: true,
-      });
-    }
   }
 
   private getRandomAdjacentPosition(map: TileMap, current: Position): Position | null {
@@ -146,12 +182,27 @@ export class MobController {
 
       // Check if tile is accessible
       const tile = map.tiles[newY][newX];
-      if (tile && tile.isAccessible) {
-        return { x: newX, y: newY };
+      if (!tile || !tile.isAccessible) {
+        continue;
       }
+
+      // Check if another mob is already on this tile
+      const mobOnTile = map.mobs.find(
+        (mob) => !mob.isCompleted && 
+                 mob.position.x === newX && 
+                 mob.position.y === newY &&
+                 !(mob.position.x === current.x && mob.position.y === current.y) // Exclude current mob
+      );
+
+      if (mobOnTile) {
+        continue; // Another mob is blocking this tile, try next direction
+      }
+
+      // Tile is valid and not occupied
+      return { x: newX, y: newY };
     }
 
-    // No valid moves, stay in place
+    // No valid moves available, stay in place
     return null;
   }
 

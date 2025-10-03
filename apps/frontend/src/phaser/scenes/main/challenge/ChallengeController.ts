@@ -165,16 +165,10 @@ export class ChallengeController {
 
       context.feedbackText.setText(ENCOURAGEMENTS[Math.min(context.attempts - 1, ENCOURAGEMENTS.length - 1)]);
       if (context.attempts >= 2) {
-        // After 2 wrong attempts, show hint briefly then trigger failure
-        context.hintText.setText('❌ Failed! Penalty: -' + challenge.reward + ' coins');
-        context.hintText.setVisible(true);
-        
-        // Wait 2 seconds to show the failure message, then trigger failure callback
-        this.scene.time.delayedCall(2000, () => {
-          const penalty = challenge.reward;
-          this.hide();
-          callbacks.onFailure(tile, penalty);
-        });
+        // After 2 wrong attempts, trigger failure immediately
+        const penalty = challenge.reward;
+        this.hide();
+        callbacks.onFailure(tile, penalty);
         return;
       }
       context.hintText.setText(callbacks.getHint(challenge));
