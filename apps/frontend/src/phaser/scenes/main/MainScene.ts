@@ -177,7 +177,7 @@ export class MainScene extends Phaser.Scene {
         name: trimmed,
         currentPosition: map.startPosition,
         currentMapId: map.id,
-        currency: 1000,
+        currency: 0,
         completedMaps: [],
         totalChallengesCompleted: 0,
         currentStreak: 0,
@@ -345,6 +345,7 @@ export class MainScene extends Phaser.Scene {
         this.challenge.present(tile, {
           onSuccess: (completedTile) => this.completeChallenge(completedTile),
           onCancel: () => this.handleChallengeCancel(),
+          onFailure: (failedTile, penalty) => this.handleChallengeFailure(failedTile, penalty),
           getHint: (challenge) => this.getHint(challenge),
         });
       }
@@ -362,6 +363,30 @@ export class MainScene extends Phaser.Scene {
     this.session.player.lastPlayedAt = new Date();
     this.board.refreshTiles(this.session.currentMap, this.session.player.currentPosition);
     this.board.updatePlayerMarker(this.session.player.currentPosition);
+    this.persistSession();
+    this.lastChallengeKey = null;
+    this.previousPosition = null;
+  }
+
+  private handleChallengeFailure(_tile: Tile, penalty: number) {
+    if (!this.session || !this.previousPosition) {
+      return;
+    }
+
+    // Deduct coins (never go below 0)
+    const coinsToDeduct = Math.min(penalty, this.session.player.currency);
+    this.session.player.currency = Math.max(0, this.session.player.currency - coinsToDeduct);
+    
+    // Reset player to previous position
+    this.session.player.currentPosition = { ...this.previousPosition };
+    this.session.player.lastPlayedAt = new Date();
+    
+    // Reset current streak on failure
+    this.session.player.currentStreak = 0;
+    
+    this.board.refreshTiles(this.session.currentMap, this.session.player.currentPosition);
+    this.board.updatePlayerMarker(this.session.player.currentPosition);
+    this.hud.update(this.session);
     this.persistSession();
     this.lastChallengeKey = null;
     this.previousPosition = null;
