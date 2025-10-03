@@ -186,6 +186,11 @@ export class MobController {
         continue;
       }
 
+      // Prevent mobs from walking onto boss tile
+      if (tile.type === 'boss') {
+        continue;
+      }
+
       // Check if another mob is already on this tile
       const mobOnTile = map.mobs.find(
         (mob) => !mob.isCompleted && 

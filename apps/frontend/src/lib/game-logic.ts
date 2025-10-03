@@ -30,8 +30,8 @@ export function generateTileMap(
         .map((_, x) => ({
           position: { x, y },
           type: 'blocked' as TileType, // Start with all blocked
-          isCompleted: false,
           isAccessible: false,
+          isBossDefeated: false,
         }))
     );
 
@@ -54,9 +54,11 @@ export function generateTileMap(
     }
   }
 
-  // Place boss at the end position
+  // Place boss at the end position with a boss challenge
   tiles[bossPosition.y][bossPosition.x].type = 'boss';
   tiles[bossPosition.y][bossPosition.x].isAccessible = true;
+  tiles[bossPosition.y][bossPosition.x].bossChallenge = generateBossChallenge(difficulty);
+  tiles[bossPosition.y][bossPosition.x].isBossDefeated = false;
 
   // Generate 10 wandering mobs with challenges
   const mobs = generateMobs(10, width, height, difficulty, startPosition, bossPosition, mazePaths);
@@ -153,6 +155,23 @@ function generateRegularChallenge(difficulty: DifficultyLevel): MathChallenge {
     correctAnswer,
     difficulty,
     reward: rewardMultipliers[difficulty],
+  };
+}
+
+/**
+ * Generate a boss challenge (harder and more rewarding)
+ */
+function generateBossChallenge(difficulty: DifficultyLevel): MathChallenge {
+  const currentIndex = difficultyProgression.indexOf(difficulty);
+  const bossDifficulty = difficultyProgression[Math.min(currentIndex + 1, difficultyProgression.length - 1)];
+
+  const challenge = generateRegularChallenge(bossDifficulty);
+  
+  // Boss rewards are 3x regular rewards
+  return {
+    ...challenge,
+    id: `boss-${Date.now()}-${randomInt(1000, 9999)}`,
+    reward: challenge.reward * 3,
   };
 }
 

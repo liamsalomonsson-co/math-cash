@@ -6,6 +6,7 @@ import type {
   MathChallenge,
   Position,
   Mob,
+  Tile,
 } from '../../../lib';
 import { generateTileMap, getNextDifficulty } from '../../../lib';
 import { BoardController } from './board/BoardController';
@@ -339,8 +340,31 @@ export class MainScene extends Phaser.Scene {
     }
 
     const { currentPosition } = this.session.player;
+    
+    // Check for boss tile collision first
+    const currentTile = this.session.currentMap.tiles[currentPosition.y]?.[currentPosition.x];
+    if (currentTile?.type === 'boss' && currentTile.bossChallenge && !currentTile.isBossDefeated) {
+      const key = `boss:${currentPosition.x},${currentPosition.y}`;
+      if (this.lastChallengeKey !== key) {
+        this.lastChallengeKey = key;
+        this.mob.pauseMovement();
+        const tempTile = {
+          ...currentTile,
+          challenge: currentTile.bossChallenge,
+          isCompleted: currentTile.isBossDefeated,
+        };
+        this.challenge.present(tempTile, {
+          onSuccess: () => this.completeBossChallenge(currentTile),
+          onCancel: () => this.handleChallengeCancel(),
+          onFailure: (_, penalty) => this.handleChallengeFailure(penalty),
+          getHint: (challenge) => this.getHint(challenge),
+        });
+      }
+      return;
+    }
+    
+    // Check for mob collision
     const mob = this.mob.getMobAtPosition(this.session.currentMap, currentPosition);
-
     if (mob) {
       const key = `${currentPosition.x},${currentPosition.y}:${mob.id}`;
       if (this.lastChallengeKey !== key) {
@@ -354,6 +378,8 @@ export class MainScene extends Phaser.Scene {
           isAccessible: true,
           challenge: mob.challenge,
           isCompleted: mob.isCompleted,
+          bossChallenge: undefined,
+          isBossDefeated: false,
         };
         this.challenge.present(tempTile, {
           onSuccess: () => this.completeMobChallenge(mob),
@@ -409,6 +435,44 @@ export class MainScene extends Phaser.Scene {
     this.mob.resumeMovement();
   }
 
+  private completeBossChallenge(tile: Tile) {
+    if (!this.session || !tile.bossChallenge) {
+      return;
+    }
+
+    const { bossChallenge } = tile;
+    if (tile.isBossDefeated) {
+      return;
+    }
+
+    tile.isBossDefeated = true;
+    
+    // Apply coin multiplier if active
+    let coinsEarned = bossChallenge.reward;
+    if (this.session.player.coinMultiplierCharges > 0) {
+      coinsEarned = bossChallenge.reward * 2;
+      this.session.player.coinMultiplierCharges -= 1;
+    }
+    
+    this.session.player.currency += coinsEarned;
+    this.session.player.totalChallengesCompleted += 1;
+    this.session.player.currentStreak += 1;
+    this.session.player.bestStreak = Math.max(
+      this.session.player.bestStreak,
+      this.session.player.currentStreak,
+    );
+    this.session.player.lastPlayedAt = new Date();
+
+    this.board.refreshTiles(this.session.currentMap, this.session.player.currentPosition);
+    this.hud.update(this.session);
+    this.persistSession();
+    this.checkMapCompletion();
+    this.lastChallengeKey = null;
+    this.previousPosition = null;
+    // Resume mob movement after boss challenge completion
+    this.mob.resumeMovement();
+  }
+
   private completeMobChallenge(mob: Mob) {
     if (!this.session) {
       return;
@@ -454,8 +518,9 @@ export class MainScene extends Phaser.Scene {
     }
 
     const map = this.session.currentMap;
-    const allCompleted = map.mobs.every((mob) => mob.isCompleted);
-    if (!allCompleted) {
+    // Map is complete when boss is defeated (mobs don't matter)
+    const bossTile = map.tiles[map.bossPosition.y][map.bossPosition.x];
+    if (!bossTile.isBossDefeated) {
       return;
     }
 

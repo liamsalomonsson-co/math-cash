@@ -40,6 +40,9 @@ export const Tile = z.object({
   position: Position,
   type: TileType,
   isAccessible: z.boolean().default(true),
+  // Boss tile has a challenge (doesn't move like mobs)
+  bossChallenge: MathChallenge.optional(),
+  isBossDefeated: z.boolean().default(false),
 });
 export type Tile = z.infer<typeof Tile>;
 
