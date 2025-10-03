@@ -39,11 +39,19 @@ export type MathChallenge = z.infer<typeof MathChallenge>;
 export const Tile = z.object({
   position: Position,
   type: TileType,
-  challenge: MathChallenge.optional(),
-  isCompleted: z.boolean().default(false),
   isAccessible: z.boolean().default(true),
 });
 export type Tile = z.infer<typeof Tile>;
+
+// Wandering mob entity
+export const Mob = z.object({
+  id: z.string(),
+  position: Position,
+  challenge: MathChallenge,
+  spriteFrame: z.number().int().min(0).max(3), // 0-3 for the 4 mob sprites
+  isCompleted: z.boolean().default(false),
+});
+export type Mob = z.infer<typeof Mob>;
 
 // Complete tile map
 export const TileMap = z.object({
@@ -54,6 +62,7 @@ export const TileMap = z.object({
   difficulty: DifficultyLevel,
   bossPosition: Position,
   startPosition: Position,
+  mobs: z.array(Mob).default([]),
   isCompleted: z.boolean().default(false),
 });
 export type TileMap = z.infer<typeof TileMap>;

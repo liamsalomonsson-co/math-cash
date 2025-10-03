@@ -6,6 +6,7 @@ import type {
   DifficultyLevel,
   MathOperation,
   TileType,
+  Mob,
 } from './types';
 import { generateOperands, calculateAnswer, randomInt } from './utils';
 
@@ -55,15 +56,10 @@ export function generateTileMap(
 
   // Place boss at the end position
   tiles[bossPosition.y][bossPosition.x].type = 'boss';
-  tiles[bossPosition.y][bossPosition.x].challenge = generateBossChallenge(difficulty);
   tiles[bossPosition.y][bossPosition.x].isAccessible = true;
 
-  // Calculate number of challenges based on map size and difficulty
-  const accessibleTiles = mazePaths.flat().filter(Boolean).length;
-  const challengeCount = Math.floor(accessibleTiles * 0.3);
-
-  // Place regular challenges on accessible paths
-  placeChallengesOnPaths(tiles, challengeCount, difficulty, startPosition, bossPosition, mazePaths);
+  // Generate 10 wandering mobs with challenges
+  const mobs = generateMobs(10, width, height, difficulty, startPosition, bossPosition, mazePaths);
 
   return {
     id: mapId,
@@ -73,24 +69,24 @@ export function generateTileMap(
     difficulty,
     bossPosition,
     startPosition,
+    mobs,
     isCompleted: false,
   };
 }
 
 /**
- * Place challenges only on accessible paths
+ * Generate wandering mobs with challenges
  */
-function placeChallengesOnPaths(
-  tiles: Tile[][],
-  challengeCount: number,
+function generateMobs(
+  count: number,
+  width: number,
+  height: number,
   difficulty: DifficultyLevel,
   startPosition: Position,
   bossPosition: Position,
   mazePaths: boolean[][]
-): void {
-  const height = tiles.length;
-  const width = tiles[0].length;
-  let placed = 0;
+): Mob[] {
+  const mobs: Mob[] = [];
 
   // Get all accessible positions (excluding start and boss)
   const accessiblePositions: Position[] = [];
@@ -104,15 +100,21 @@ function placeChallengesOnPaths(
     }
   }
 
-  // Randomly select positions for challenges
+  // Randomly select positions for mobs
   const shuffledPositions = accessiblePositions.sort(() => Math.random() - 0.5);
   
-  for (let i = 0; i < Math.min(challengeCount, shuffledPositions.length); i++) {
+  for (let i = 0; i < Math.min(count, shuffledPositions.length); i++) {
     const pos = shuffledPositions[i];
-    tiles[pos.y][pos.x].type = 'challenge';
-    tiles[pos.y][pos.x].challenge = generateRegularChallenge(difficulty);
-    placed++;
+    mobs.push({
+      id: `mob-${Date.now()}-${i}-${randomInt(1000, 9999)}`,
+      position: { ...pos },
+      challenge: generateRegularChallenge(difficulty),
+      spriteFrame: randomInt(0, 3), // Random sprite frame (0-3)
+      isCompleted: false,
+    });
   }
+
+  return mobs;
 }
 
 /**
@@ -151,23 +153,6 @@ function generateRegularChallenge(difficulty: DifficultyLevel): MathChallenge {
     correctAnswer,
     difficulty,
     reward: rewardMultipliers[difficulty],
-  };
-}
-
-/**
- * Generate a boss challenge (harder and more rewarding)
- */
-function generateBossChallenge(difficulty: DifficultyLevel): MathChallenge {
-  const currentIndex = difficultyProgression.indexOf(difficulty);
-  const bossDifficulty = difficultyProgression[Math.min(currentIndex + 1, difficultyProgression.length - 1)];
-
-  const challenge = generateRegularChallenge(bossDifficulty);
-  
-  // Boss rewards are 3x regular rewards
-  return {
-    ...challenge,
-    id: `boss-${Date.now()}-${randomInt(1000, 9999)}`,
-    reward: challenge.reward * 3,
   };
 }
 

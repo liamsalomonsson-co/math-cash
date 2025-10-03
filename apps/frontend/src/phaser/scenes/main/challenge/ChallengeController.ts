@@ -2,10 +2,16 @@ import Phaser from 'phaser';
 import type { MathChallenge, Tile } from '../../../../lib';
 import { ENCOURAGEMENTS } from '../constants';
 
+// Extended tile type that includes challenge data (for mobs)
+interface TileWithChallenge extends Tile {
+  challenge?: MathChallenge;
+  isCompleted?: boolean;
+}
+
 interface ChallengeCallbacks {
-  onSuccess(tile: Tile): void;
-  onCancel(tile: Tile): void;
-  onFailure(tile: Tile, penalty: number): void;
+  onSuccess(tile: TileWithChallenge): void;
+  onCancel(tile: TileWithChallenge): void;
+  onFailure(tile: TileWithChallenge, penalty: number): void;
   getHint(challenge: MathChallenge): string;
 }
 
@@ -16,7 +22,7 @@ interface ChallengeContext {
   answerText: Phaser.GameObjects.Text;
   feedbackText: Phaser.GameObjects.Text;
   hintText: Phaser.GameObjects.Text;
-  tile: Tile;
+  tile: TileWithChallenge;
   challenge: MathChallenge;
   attempts: number;
   inputValue: string;
@@ -33,7 +39,7 @@ export class ChallengeController {
     return this.active;
   }
 
-  present(tile: Tile, callbacks: ChallengeCallbacks) {
+  present(tile: TileWithChallenge, callbacks: ChallengeCallbacks) {
     if (!tile.challenge || tile.isCompleted) {
       return;
     }

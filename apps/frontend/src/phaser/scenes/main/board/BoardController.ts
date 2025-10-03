@@ -8,7 +8,6 @@ export class BoardController {
   private tileSize = 0;
   private gridOrigin = { x: 0, y: 0 };
   private tileObjects = new Map<string, Phaser.GameObjects.Rectangle>();
-  private mobSprites = new Map<string, Phaser.GameObjects.Sprite>();
 
   constructor(private readonly scene: Phaser.Scene) {
     this.tileContainer = scene.add.container(0, 0);
@@ -19,7 +18,6 @@ export class BoardController {
     this.tileContainer.destroy(true);
     this.playerMarker?.destroy();
     this.tileObjects.clear();
-    this.mobSprites.clear();
   }
 
   setVisible(visible: boolean) {
@@ -30,7 +28,6 @@ export class BoardController {
   rebuild(map: TileMap, currentPosition: Position): boolean {
     this.tileContainer.removeAll(true);
     this.tileObjects.clear();
-    this.mobSprites.clear();
 
     this.tileSize = this.calculateTileSize(map);
     if (this.tileSize <= 0) {
@@ -54,15 +51,6 @@ export class BoardController {
       const isPlayerTile = x === currentPosition.x && y === currentPosition.y;
       const fillColor = this.getTileBaseColor(tile);
       rect.setFillStyle(isPlayerTile ? PLAYER_COLOR : fillColor, isPlayerTile ? 0.35 : 1);
-
-      if (tile.isCompleted && tile.challenge) {
-        rect.setFillStyle(0x43aa8b, 0.85);
-        // Hide the mob sprite when challenge is completed
-        const mobSprite = this.mobSprites.get(key);
-        if (mobSprite) {
-          mobSprite.setVisible(false);
-        }
-      }
     }
   }
 
@@ -81,6 +69,17 @@ export class BoardController {
 
   getTileRect(position: Position): Phaser.GameObjects.Rectangle | undefined {
     return this.tileObjects.get(`${position.x},${position.y}`);
+  }
+
+  /**
+   * Get board dimensions for other controllers to use
+   */
+  getBoardDimensions() {
+    return {
+      tileSize: this.tileSize,
+      offsetX: this.gridOrigin.x,
+      offsetY: this.gridOrigin.y,
+    };
   }
 
   private calculateTileSize(map: TileMap): number {
@@ -126,17 +125,6 @@ export class BoardController {
         this.tileContainer.add(rect);
         this.tileObjects.set(`${x},${y}`, rect);
 
-        // Add random mob sprite on challenge tiles
-        if (tile.type === 'challenge' && tile.challenge && !tile.isCompleted) {
-          const randomFrame = Phaser.Math.Between(0, 3); // Random mob from 0-3
-          const mobSprite = this.scene.add.sprite(rect.x, rect.y, 'mobs', randomFrame);
-          const mobSize = this.tileSize * 0.75; // 75% of tile size (larger)
-          mobSprite.setDisplaySize(mobSize, mobSize);
-          mobSprite.setDepth(2); // Below player but above tiles
-          this.tileContainer.add(mobSprite);
-          this.mobSprites.set(`${x},${y}`, mobSprite);
-        }
-
         if (tile.type === 'boss') {
           const crown = this.scene.add.text(rect.x, rect.y - this.tileSize * 0.16, '👑');
           crown.setOrigin(0.5, 0.5);
@@ -156,7 +144,7 @@ export class BoardController {
     rect.setStrokeStyle(2, 0x1a2f4b, 0.6);
     rect.setFillStyle(this.getTileBaseColor(tile));
 
-    if (tile.isAccessible && (tile.challenge || tile.type === 'boss')) {
+    if (tile.isAccessible && tile.type === 'boss') {
       rect.setInteractive({ useHandCursor: false });
       rect.on('pointerover', () => {
         rect.setScale(1.02);
@@ -189,8 +177,6 @@ export class BoardController {
     switch (tile.type) {
       case 'boss':
         return 0xff8fab;
-      case 'challenge':
-        return 0x1d3557; // Same as empty tiles - let sprite stand out
       case 'blocked':
         return 0x14213d;
       default:

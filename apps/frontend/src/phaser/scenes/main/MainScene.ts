@@ -5,7 +5,7 @@ import type {
   GameSession,
   MathChallenge,
   Position,
-  Tile,
+  Mob,
 } from '../../../lib';
 import { generateTileMap, getNextDifficulty } from '../../../lib';
 import { BoardController } from './board/BoardController';
@@ -14,6 +14,7 @@ import { HudController } from './hud/HudController';
 import { ChallengeController } from './challenge/ChallengeController';
 import { LevelOverlayController } from './level/LevelOverlayController';
 import { ShopController } from './shop/ShopController';
+import { MobController } from './mob/MobController';
 import type { ShopItem } from './shop/ShopController';
 import { loadSession, saveSession } from './session/storage';
 import { FIXED_MAP_SIZE } from './constants';
@@ -32,6 +33,7 @@ export class MainScene extends Phaser.Scene {
   private challenge!: ChallengeController;
   private levelOverlay!: LevelOverlayController;
   private shop!: ShopController;
+  private mob!: MobController;
 
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys?: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
@@ -58,6 +60,7 @@ export class MainScene extends Phaser.Scene {
     this.challenge = new ChallengeController(this);
     this.levelOverlay = new LevelOverlayController(this);
     this.shop = new ShopController(this);
+    this.mob = new MobController(this);
     this.shop.initialize({
       onPurchase: (item, session) => this.handlePurchase(item, session),
       getSession: () => this.session,
@@ -98,6 +101,7 @@ export class MainScene extends Phaser.Scene {
       this.challenge.hide();
       this.levelOverlay.hide();
       this.shop.destroy();
+      this.mob.destroy();
       this.board.destroy();
     });
 
@@ -159,6 +163,7 @@ export class MainScene extends Phaser.Scene {
     this.challenge.hide();
     this.levelOverlay.hide();
     this.shop.setVisible(false);
+    this.mob.stopMovement();
     if (this.session) {
       this.menu.setPendingName(this.session.player.name);
     }
@@ -233,6 +238,14 @@ export class MainScene extends Phaser.Scene {
       this.pendingRebuild = true;
       return;
     }
+
+    // Render and start mob movement
+    const { tileSize, offsetX, offsetY } = this.board.getBoardDimensions();
+    this.mob.render(this.session.currentMap, tileSize, offsetX, offsetY);
+    this.mob.startMovement(this.session.currentMap, () => {
+      // Check for collision whenever mobs move
+      this.emitChallengeIfNeeded();
+    });
 
     this.board.setVisible(true);
     this.hud.render();
@@ -326,26 +339,24 @@ export class MainScene extends Phaser.Scene {
     }
 
     const { currentPosition } = this.session.player;
-    const tileRow = this.session.currentMap.tiles[currentPosition.y];
-    if (!tileRow) {
-      this.lastChallengeKey = null;
-      return;
-    }
+    const mob = this.mob.getMobAtPosition(this.session.currentMap, currentPosition);
 
-    const tile = tileRow[currentPosition.x];
-    if (!tile) {
-      this.lastChallengeKey = null;
-      return;
-    }
-
-    if (tile.challenge && !tile.isCompleted) {
-      const key = `${currentPosition.x},${currentPosition.y}:${tile.challenge.id}`;
+    if (mob) {
+      const key = `${currentPosition.x},${currentPosition.y}:${mob.id}`;
       if (this.lastChallengeKey !== key) {
         this.lastChallengeKey = key;
-        this.challenge.present(tile, {
-          onSuccess: (completedTile) => this.completeChallenge(completedTile),
+        // Create a temporary tile object with the mob's challenge
+        const tempTile = {
+          position: currentPosition,
+          type: 'challenge' as const,
+          isAccessible: true,
+          challenge: mob.challenge,
+          isCompleted: mob.isCompleted,
+        };
+        this.challenge.present(tempTile, {
+          onSuccess: () => this.completeMobChallenge(mob),
           onCancel: () => this.handleChallengeCancel(),
-          onFailure: (failedTile, penalty) => this.handleChallengeFailure(failedTile, penalty),
+          onFailure: (_, penalty) => this.handleChallengeFailure(penalty),
           getHint: (challenge) => this.getHint(challenge),
         });
       }
@@ -368,8 +379,8 @@ export class MainScene extends Phaser.Scene {
     this.previousPosition = null;
   }
 
-  private handleChallengeFailure(_tile: Tile, penalty: number) {
-    if (!this.session || !this.previousPosition) {
+  private handleChallengeFailure(penalty: number) {
+    if (!this.session) {
       return;
     }
 
@@ -377,8 +388,8 @@ export class MainScene extends Phaser.Scene {
     const coinsToDeduct = Math.min(penalty, this.session.player.currency);
     this.session.player.currency = Math.max(0, this.session.player.currency - coinsToDeduct);
     
-    // Reset player to previous position
-    this.session.player.currentPosition = { ...this.previousPosition };
+    // Reset player to start position
+    this.session.player.currentPosition = { ...this.session.currentMap.startPosition };
     this.session.player.lastPlayedAt = new Date();
     
     // Reset current streak on failure
@@ -392,17 +403,17 @@ export class MainScene extends Phaser.Scene {
     this.previousPosition = null;
   }
 
-  private completeChallenge(tile: Tile) {
-    if (!this.session || !tile.challenge) {
+  private completeMobChallenge(mob: Mob) {
+    if (!this.session) {
       return;
     }
 
-    const { challenge } = tile;
-    if (tile.isCompleted) {
+    const { challenge } = mob;
+    if (mob.isCompleted) {
       return;
     }
 
-    tile.isCompleted = true;
+    mob.isCompleted = true;
     
     // Apply coin multiplier if active
     let coinsEarned = challenge.reward;
@@ -420,6 +431,7 @@ export class MainScene extends Phaser.Scene {
     );
     this.session.player.lastPlayedAt = new Date();
 
+    this.mob.updateMobVisibility(this.session.currentMap);
     this.board.refreshTiles(this.session.currentMap, this.session.player.currentPosition);
     this.hud.update(this.session);
     this.persistSession();
@@ -434,11 +446,12 @@ export class MainScene extends Phaser.Scene {
     }
 
     const map = this.session.currentMap;
-    const allCompleted = map.tiles.every((row) => row.every((tile) => !tile.challenge || tile.isCompleted));
+    const allCompleted = map.mobs.every((mob) => mob.isCompleted);
     if (!allCompleted) {
       return;
     }
 
+    this.mob.stopMovement();
     this.levelOverlay.show(this.session, {
       onAdvance: () => {
         this.advanceToNextMap();

@@ -82,8 +82,8 @@ export class ShopController {
   }
 
   private createShopButton() {
-    const buttonX = 20;
-    const buttonY = this.scene.scale.height / 2;
+    const buttonX = 10;
+    const buttonY = 100;
 
     const container = this.scene.add.container(buttonX, buttonY);
     container.setDepth(15);
@@ -339,10 +339,10 @@ export class ShopController {
     this.overlay = undefined;
   }
 
-  handleResize(_width: number, height: number) {
-    // Reposition shop button
+  handleResize(_width: number, _height: number) {
+    // Reposition shop button to fixed position
     if (this.shopButton) {
-      this.shopButton.setPosition(20, height / 2);
+      this.shopButton.setPosition(10, 100);
     }
 
     // If shop is open, close and reopen to adjust to new size
