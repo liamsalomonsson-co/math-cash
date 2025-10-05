@@ -1,14 +1,5 @@
 import Phaser from 'phaser';
-import type {
-  Direction,
-  DifficultyLevel,
-  GameSession,
-  MathChallenge,
-  Position,
-  Mob,
-  Tile,
-} from '../../../lib';
-import { generateTileMap, getNextDifficulty } from '../../../lib';
+import type { GameSession } from '../../../lib';
 import { BoardController } from './board/BoardController';
 import { MenuController } from './menu/MenuController';
 import { HudController } from './hud/HudController';
@@ -17,17 +8,16 @@ import { LevelOverlayController } from './level/LevelOverlayController';
 import { ShopController } from './shop/ShopController';
 import { MobController } from './mob/MobController';
 import type { ShopItem } from './shop/ShopController';
-import { loadSession, saveSession } from './session/storage';
-import { FIXED_MAP_SIZE } from './constants';
-import type { GamePhase } from './types';
+import { InputHandler } from './input/InputHandler';
+import { GameStateManager } from './state/GameStateManager';
+import { ChallengeManager } from './challenge/ChallengeManager';
+import { PlayerMovementHandler } from './player/PlayerMovementHandler';
+import { MapProgressionManager } from './map/MapProgressionManager';
 
 export class MainScene extends Phaser.Scene {
-  private phase: GamePhase = 'menu';
-  private session: GameSession | null = null;
   private pendingRebuild = false;
-  private lastChallengeKey: string | null = null;
-  private previousPosition: Position | null = null;
 
+  // Controllers
   private menu!: MenuController;
   private board!: BoardController;
   private hud!: HudController;
@@ -36,15 +26,12 @@ export class MainScene extends Phaser.Scene {
   private shop!: ShopController;
   private mob!: MobController;
 
-  private cursorKeys?: Phaser.Types.Input.Keyboard.CursorKeys;
-  
-  // Swipe gesture detection
-  private swipeStartX = 0;
-  private swipeStartY = 0;
-  private swipeStartTime = 0;
-  private swipeDetected: 'up' | 'down' | 'left' | 'right' | null = null;
-  private readonly SWIPE_MIN_DISTANCE = 50; // Minimum swipe distance in pixels
-  private readonly SWIPE_MAX_TIME = 500; // Maximum swipe duration in ms
+  // Handlers
+  private inputHandler!: InputHandler;
+  private stateManager!: GameStateManager;
+  private challengeManager!: ChallengeManager;
+  private playerMovement!: PlayerMovementHandler;
+  private mapProgression!: MapProgressionManager;
 
   constructor() {
     super('MainScene');
@@ -63,67 +50,63 @@ export class MainScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#0b1e3f');
 
+    // Initialize state and input handlers
+    this.stateManager = new GameStateManager();
+    this.inputHandler = new InputHandler(this);
+
+    // Initialize controllers
     this.board = new BoardController(this);
     this.hud = new HudController(this);
     this.challenge = new ChallengeController(this);
     this.levelOverlay = new LevelOverlayController(this);
     this.shop = new ShopController(this);
     this.mob = new MobController(this);
+    
+    // Initialize gameplay handlers
+    this.playerMovement = new PlayerMovementHandler(this.stateManager, this.board);
+    this.challengeManager = new ChallengeManager(
+      this.stateManager,
+      this.board,
+      this.challenge,
+      this.mob,
+      {
+        onChallengeStart: () => {},
+        onChallengeComplete: () => {
+          this.hud.update(this.stateManager.getSession()!);
+          this.mapProgression.checkMapCompletion();
+        },
+        onBossComplete: () => {
+          this.hud.update(this.stateManager.getSession()!);
+          this.mapProgression.checkMapCompletion();
+        },
+      }
+    );
+    this.mapProgression = new MapProgressionManager(
+      this.stateManager,
+      this.levelOverlay,
+      this.mob,
+      {
+        onMapComplete: () => this.showMenu(),
+        onMapAdvanced: () => {
+          this.stateManager.setPhase('play');
+          this.challengeManager.clearChallengeState();
+          this.pendingRebuild = true;
+          this.rebuildScene();
+          this.hud.update(this.stateManager.getSession()!);
+          this.stateManager.persistSession();
+        },
+      }
+    );
+    
+    // Initialize shop and menu
     this.shop.initialize({
       onPurchase: (item, session) => this.handlePurchase(item, session),
-      getSession: () => this.session,
+      getSession: () => this.stateManager.getSession(),
     });
     this.menu = new MenuController(this, {
       onStart: (name) => this.startNewGame(name),
       onContinue: () => this.continueSession(),
-      getSession: () => this.session,
-    });
-
-    // Input
-    if (this.input.keyboard) {
-      this.cursorKeys = this.input.keyboard.createCursorKeys();
-      this.input.keyboard.addCapture([
-        Phaser.Input.Keyboard.KeyCodes.UP,
-        Phaser.Input.Keyboard.KeyCodes.DOWN,
-        Phaser.Input.Keyboard.KeyCodes.LEFT,
-        Phaser.Input.Keyboard.KeyCodes.RIGHT,
-      ]);
-    }
-    
-    // Swipe gesture detection
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      this.swipeStartX = pointer.x;
-      this.swipeStartY = pointer.y;
-      this.swipeStartTime = this.time.now;
-      this.swipeDetected = null;
-    });
-    
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      const swipeTime = this.time.now - this.swipeStartTime;
-      
-      // Only process if swipe was quick enough
-      if (swipeTime > this.SWIPE_MAX_TIME) {
-        return;
-      }
-      
-      const deltaX = pointer.x - this.swipeStartX;
-      const deltaY = pointer.y - this.swipeStartY;
-      const absDeltaX = Math.abs(deltaX);
-      const absDeltaY = Math.abs(deltaY);
-      
-      // Determine if swipe distance is sufficient
-      if (absDeltaX < this.SWIPE_MIN_DISTANCE && absDeltaY < this.SWIPE_MIN_DISTANCE) {
-        return;
-      }
-      
-      // Determine primary swipe direction
-      if (absDeltaX > absDeltaY) {
-        // Horizontal swipe
-        this.swipeDetected = deltaX > 0 ? 'right' : 'left';
-      } else {
-        // Vertical swipe
-        this.swipeDetected = deltaY > 0 ? 'down' : 'up';
-      }
+      getSession: () => this.stateManager.getSession(),
     });
 
     this.input.keyboard?.on('keydown-M', this.handleMenuShortcut, this);
@@ -139,14 +122,15 @@ export class MainScene extends Phaser.Scene {
       this.shop.destroy();
       this.mob.destroy();
       this.board.destroy();
+      this.inputHandler.destroy();
     });
 
-    this.loadExistingSession();
+    this.stateManager.loadExistingSession();
     this.showMenu();
   }
 
   update() {
-    if (this.phase !== 'play' || !this.session) {
+    if (this.stateManager.getPhase() !== 'play' || !this.stateManager.getSession()) {
       return;
     }
 
@@ -158,9 +142,16 @@ export class MainScene extends Phaser.Scene {
       return;
     }
 
-    const direction = this.pollDirectionalInput();
+    const direction = this.inputHandler.pollDirectionalInput();
     if (direction) {
-      this.movePlayer(direction);
+      const session = this.stateManager.getSession();
+      if (session) {
+        this.challengeManager.setPreviousPosition(session.player.currentPosition);
+        const newPosition = this.playerMovement.movePlayer(direction);
+        if (newPosition) {
+          this.challengeManager.checkForChallenge(newPosition);
+        }
+      }
     }
   }
 
@@ -172,7 +163,7 @@ export class MainScene extends Phaser.Scene {
     this.levelOverlay.handleResize(width, height);
     this.shop.handleResize(width, height);
 
-    if (this.phase === 'menu') {
+    if (this.stateManager.getPhase() === 'menu') {
       this.showMenu();
       return;
     }
@@ -183,17 +174,17 @@ export class MainScene extends Phaser.Scene {
   };
 
   private handleMenuShortcut = (event: KeyboardEvent) => {
-    if (this.phase !== 'play' || this.challenge.isActive() || this.levelOverlay.isActive()) {
+    if (this.stateManager.getPhase() !== 'play' || this.challenge.isActive() || this.levelOverlay.isActive()) {
       return;
     }
 
     event.preventDefault();
     this.showMenu();
-    this.persistSession();
+    this.stateManager.persistSession();
   };
 
   private showMenu() {
-    this.phase = 'menu';
+    this.stateManager.setPhase('menu');
     this.board.setVisible(false);
     this.hud.setVisible(false);
     this.challenge.hide();
@@ -201,41 +192,20 @@ export class MainScene extends Phaser.Scene {
     this.shop.setVisible(false);
     this.mob.stopMovement();
     this.mob.setVisible(false);
-    if (this.session) {
-      this.menu.setPendingName(this.session.player.name);
+    const session = this.stateManager.getSession();
+    if (session) {
+      this.menu.setPendingName(session.player.name);
     }
     this.menu.render();
   }
 
   private startNewGame(name: string) {
     const trimmed = name.trim();
-    const now = new Date();
-    const initialDifficulty: DifficultyLevel = 'infant';
-    const map = generateTileMap('map-1', FIXED_MAP_SIZE, FIXED_MAP_SIZE, initialDifficulty);
-
-    this.session = {
-      player: {
-        id: `player-${now.getTime()}`,
-        name: trimmed,
-        currentPosition: map.startPosition,
-        currentMapId: map.id,
-        currency: 0,
-        completedMaps: [],
-        totalChallengesCompleted: 0,
-        currentStreak: 0,
-        bestStreak: 0,
-        createdAt: now,
-        lastPlayedAt: now,
-        coinMultiplierCharges: 0,
-      },
-      currentMap: map,
-      gameStartedAt: now,
-      isPaused: false,
-    };
-
+    this.stateManager.createNewSession(trimmed);
+    
     this.menu.setPendingName(trimmed);
-    this.lastChallengeKey = null;
-    this.phase = 'play';
+    this.challengeManager.clearChallengeState();
+    this.stateManager.setPhase('play');
     this.menu.destroy();
     this.board.setVisible(true);
     this.shop.setVisible(true);
@@ -243,16 +213,17 @@ export class MainScene extends Phaser.Scene {
     this.hud.setVisible(true);
     this.pendingRebuild = true;
     this.rebuildScene();
-    this.persistSession();
+    this.stateManager.persistSession();
   }
 
   private continueSession() {
-    if (!this.session) {
+    const session = this.stateManager.getSession();
+    if (!session) {
       return;
     }
 
-    this.menu.setPendingName(this.session.player.name);
-    this.phase = 'play';
+    this.menu.setPendingName(session.player.name);
+    this.stateManager.setPhase('play');
     this.menu.destroy();
     this.board.setVisible(true);
     this.shop.setVisible(true);
@@ -261,17 +232,18 @@ export class MainScene extends Phaser.Scene {
     this.hud.setVisible(true);
     this.pendingRebuild = true;
     this.rebuildScene();
-    this.persistSession();
+    this.stateManager.persistSession();
   }
 
   private rebuildScene() {
-    if (!this.session) {
+    const session = this.stateManager.getSession();
+    if (!session) {
       this.showMenu();
       return;
     }
 
     this.pendingRebuild = false;
-    const success = this.board.rebuild(this.session.currentMap, this.session.player.currentPosition);
+    const success = this.board.rebuild(session.currentMap, session.player.currentPosition);
     if (!success) {
       this.pendingRebuild = true;
       return;
@@ -279,356 +251,26 @@ export class MainScene extends Phaser.Scene {
 
     // Render and start mob movement
     const { tileSize, offsetX, offsetY } = this.board.getBoardDimensions();
-    this.mob.render(this.session.currentMap, tileSize, offsetX, offsetY);
-    this.mob.startMovement(this.session.currentMap, () => {
+    this.mob.render(session.currentMap, tileSize, offsetX, offsetY);
+    this.mob.startMovement(session.currentMap, () => {
       // Check for collision whenever mobs move
-      this.emitChallengeIfNeeded();
+      if (session.player.currentPosition) {
+        this.challengeManager.checkForChallenge(session.player.currentPosition);
+      }
     });
 
     this.board.setVisible(true);
     this.hud.render();
     this.hud.setVisible(true);
-    this.hud.update(this.session);
+    this.hud.update(session);
     this.hud.position();
-    this.emitChallengeIfNeeded();
-  }
-
-  private pollDirectionalInput(): Direction | null {
-    // Check for swipe gesture first
-    if (this.swipeDetected) {
-      const direction = this.swipeDetected;
-      this.swipeDetected = null; // Consume the swipe
-      return direction;
-    }
-    
-    // Fall back to keyboard input
-    const { JustDown } = Phaser.Input.Keyboard;
-    if (this.cursorKeys) {
-      const { left, right, up, down } = this.cursorKeys;
-      if (left && JustDown(left)) return 'left';
-      if (right && JustDown(right)) return 'right';
-      if (up && JustDown(up)) return 'up';
-      if (down && JustDown(down)) return 'down';
-    }
-
-    return null;
-  }
-
-  private movePlayer(direction: Direction) {
-    if (!this.session) {
-      return;
-    }
-
-    const next = this.calculateNextPosition(direction);
-    if (!next) {
-      return;
-    }
-
-    this.previousPosition = { ...this.session.player.currentPosition };
-    this.session.player.currentPosition = next;
-    this.session.player.lastPlayedAt = new Date();
-    this.board.refreshTiles(this.session.currentMap, next);
-    this.board.updatePlayerMarker(next);
-    this.emitChallengeIfNeeded();
-    this.persistSession();
-  }
-
-  private calculateNextPosition(direction: Direction): Position | null {
-    if (!this.session) {
-      return null;
-    }
-
-    const current = this.session.player.currentPosition;
-    const map = this.session.currentMap;
-    let target: Position = current;
-
-    switch (direction) {
-      case 'left':
-        target = { x: Math.max(0, current.x - 1), y: current.y };
-        break;
-      case 'right':
-        target = { x: Math.min(map.width - 1, current.x + 1), y: current.y };
-        break;
-      case 'up':
-        target = { x: current.x, y: Math.max(0, current.y - 1) };
-        break;
-      case 'down':
-        target = { x: current.x, y: Math.min(map.height - 1, current.y + 1) };
-        break;
-      default:
-        break;
-    }
-
-    if (target.x === current.x && target.y === current.y) {
-      return null;
-    }
-
-    const tile = map.tiles[target.y][target.x];
-    if (!tile.isAccessible) {
-      return null;
-    }
-
-    return target;
-  }
-
-  private emitChallengeIfNeeded() {
-    if (!this.session) {
-      this.lastChallengeKey = null;
-      return;
-    }
-
-    const { currentPosition } = this.session.player;
-    
-    // Check for boss tile collision first
-    const currentTile = this.session.currentMap.tiles[currentPosition.y]?.[currentPosition.x];
-    if (currentTile?.type === 'boss' && currentTile.bossChallenge && !currentTile.isBossDefeated) {
-      const key = `boss:${currentPosition.x},${currentPosition.y}`;
-      if (this.lastChallengeKey !== key) {
-        this.lastChallengeKey = key;
-        this.mob.pauseMovement();
-        const tempTile = {
-          ...currentTile,
-          challenge: currentTile.bossChallenge,
-          isCompleted: currentTile.isBossDefeated,
-        };
-        this.challenge.present(tempTile, {
-          onSuccess: () => this.completeBossChallenge(currentTile),
-          onCancel: () => this.handleChallengeCancel(),
-          onFailure: (_, penalty) => this.handleChallengeFailure(penalty),
-          getHint: (challenge) => this.getHint(challenge),
-        });
-      }
-      return;
-    }
-    
-    // Check for mob collision
-    const mob = this.mob.getMobAtPosition(this.session.currentMap, currentPosition);
-    if (mob) {
-      const key = `${currentPosition.x},${currentPosition.y}:${mob.id}`;
-      if (this.lastChallengeKey !== key) {
-        this.lastChallengeKey = key;
-        // Pause mob movement during challenge
-        this.mob.pauseMovement();
-        // Create a temporary tile object with the mob's challenge
-        const tempTile = {
-          position: currentPosition,
-          type: 'challenge' as const,
-          isAccessible: true,
-          challenge: mob.challenge,
-          isCompleted: mob.isCompleted,
-          bossChallenge: undefined,
-          isBossDefeated: false,
-        };
-        this.challenge.present(tempTile, {
-          onSuccess: () => this.completeMobChallenge(mob),
-          onCancel: () => this.handleChallengeCancel(),
-          onFailure: (_, penalty) => this.handleChallengeFailure(penalty),
-          getHint: (challenge) => this.getHint(challenge),
-        });
-      }
-    } else {
-      this.lastChallengeKey = null;
-    }
-  }
-
-  private handleChallengeCancel() {
-    if (!this.session || !this.previousPosition) {
-      return;
-    }
-
-    this.session.player.currentPosition = { ...this.previousPosition };
-    this.session.player.lastPlayedAt = new Date();
-    this.board.refreshTiles(this.session.currentMap, this.session.player.currentPosition);
-    this.board.updatePlayerMarker(this.session.player.currentPosition);
-    this.persistSession();
-    this.lastChallengeKey = null;
-    this.previousPosition = null;
-    // Resume mob movement after challenge is cancelled
-    this.mob.resumeMovement();
-  }
-
-  private handleChallengeFailure(penalty: number) {
-    if (!this.session) {
-      return;
-    }
-
-    // Deduct coins (never go below 0)
-    const coinsToDeduct = Math.min(penalty, this.session.player.currency);
-    this.session.player.currency = Math.max(0, this.session.player.currency - coinsToDeduct);
-    
-    // Reset player to start position
-    this.session.player.currentPosition = { ...this.session.currentMap.startPosition };
-    this.session.player.lastPlayedAt = new Date();
-    
-    // Reset current streak on failure
-    this.session.player.currentStreak = 0;
-    
-    this.board.refreshTiles(this.session.currentMap, this.session.player.currentPosition);
-    this.board.updatePlayerMarker(this.session.player.currentPosition);
-    this.hud.update(this.session);
-    this.persistSession();
-    this.lastChallengeKey = null;
-    this.previousPosition = null;
-    // Resume mob movement after challenge failure
-    this.mob.resumeMovement();
-  }
-
-  private completeBossChallenge(tile: Tile) {
-    if (!this.session || !tile.bossChallenge) {
-      return;
-    }
-
-    const { bossChallenge } = tile;
-    if (tile.isBossDefeated) {
-      return;
-    }
-
-    tile.isBossDefeated = true;
-    
-    // Apply coin multiplier if active
-    let coinsEarned = bossChallenge.reward;
-    if (this.session.player.coinMultiplierCharges > 0) {
-      coinsEarned = bossChallenge.reward * 2;
-      this.session.player.coinMultiplierCharges -= 1;
-    }
-    
-    this.session.player.currency += coinsEarned;
-    this.session.player.totalChallengesCompleted += 1;
-    this.session.player.currentStreak += 1;
-    this.session.player.bestStreak = Math.max(
-      this.session.player.bestStreak,
-      this.session.player.currentStreak,
-    );
-    this.session.player.lastPlayedAt = new Date();
-
-    this.board.refreshTiles(this.session.currentMap, this.session.player.currentPosition);
-    this.hud.update(this.session);
-    this.persistSession();
-    this.checkMapCompletion();
-    this.lastChallengeKey = null;
-    this.previousPosition = null;
-    // Resume mob movement after boss challenge completion
-    this.mob.resumeMovement();
-  }
-
-  private completeMobChallenge(mob: Mob) {
-    if (!this.session) {
-      return;
-    }
-
-    const { challenge } = mob;
-    if (mob.isCompleted) {
-      return;
-    }
-
-    mob.isCompleted = true;
-    
-    // Apply coin multiplier if active
-    let coinsEarned = challenge.reward;
-    if (this.session.player.coinMultiplierCharges > 0) {
-      coinsEarned = challenge.reward * 2;
-      this.session.player.coinMultiplierCharges -= 1;
-    }
-    
-    this.session.player.currency += coinsEarned;
-    this.session.player.totalChallengesCompleted += 1;
-    this.session.player.currentStreak += 1;
-    this.session.player.bestStreak = Math.max(
-      this.session.player.bestStreak,
-      this.session.player.currentStreak,
-    );
-    this.session.player.lastPlayedAt = new Date();
-
-    this.mob.updateMobVisibility(this.session.currentMap);
-    this.board.refreshTiles(this.session.currentMap, this.session.player.currentPosition);
-    this.hud.update(this.session);
-    this.persistSession();
-    this.checkMapCompletion();
-    this.lastChallengeKey = null;
-    this.previousPosition = null;
-    // Resume mob movement after challenge completion
-    this.mob.resumeMovement();
-  }
-
-  private checkMapCompletion() {
-    if (!this.session) {
-      return;
-    }
-
-    const map = this.session.currentMap;
-    // Map is complete when boss is defeated (mobs don't matter)
-    const bossTile = map.tiles[map.bossPosition.y][map.bossPosition.x];
-    if (!bossTile.isBossDefeated) {
-      return;
-    }
-
-    this.mob.stopMovement();
-    this.levelOverlay.show(this.session, {
-      onAdvance: () => {
-        this.advanceToNextMap();
-        this.persistSession();
-      },
-      onMenu: () => {
-        this.showMenu();
-        this.persistSession();
-      },
-    });
-  }
-
-  private advanceToNextMap() {
-    if (!this.session) {
-      return;
-    }
-
-    const nextDifficulty = getNextDifficulty(this.session.currentMap.difficulty);
-    const nextMapId = `map-${this.session.player.completedMaps.length + 2}`;
-    const newMap = generateTileMap(nextMapId, FIXED_MAP_SIZE, FIXED_MAP_SIZE, nextDifficulty);
-
-    this.session.player.completedMaps = [...this.session.player.completedMaps, this.session.currentMap.id];
-    this.session.player.currentMapId = nextMapId;
-    this.session.player.currentPosition = newMap.startPosition;
-    this.session.player.lastPlayedAt = new Date();
-    this.session.player.currentStreak = 0;
-    this.session.currentMap = newMap;
-
-    this.phase = 'play';
-    this.lastChallengeKey = null;
-    this.pendingRebuild = true;
-    this.rebuildScene();
-    this.hud.update(this.session);
-    this.persistSession();
-  }
-
-  private getHint(challenge: MathChallenge): string {
-    const [a, b] = challenge.operands;
-    switch (challenge.operation) {
-      case 'addition':
-        return `Hint: Add the numbers together! ${a} + ${b} = ?`;
-      case 'subtraction':
-        return `Hint: Take away the second number! ${a} - ${b} = ?`;
-      case 'multiplication':
-        return `Hint: Multiply the numbers! ${a} × ${b} = ?`;
-      case 'division':
-        return `Hint: Divide the first number by the second! ${a} ÷ ${b} = ?`;
-      default:
-        return 'Think about what operation you need to do!';
-    }
-  }
-
-  private loadExistingSession() {
-    const session = loadSession();
-    if (!session) {
-      return;
-    }
-
-    this.session = session;
-    this.menu.setPendingName(session.player.name);
+    this.challengeManager.checkForChallenge(session.player.currentPosition);
   }
 
   private handlePurchase(item: ShopItem, session: GameSession) {
     if (session.player.currency >= item.price) {
       session.player.currency -= item.price;
-      session.player.lastPlayedAt = new Date();
+      this.stateManager.updateLastPlayed();
       
       // Handle item effects
       switch (item.id) {
@@ -641,11 +283,7 @@ export class MainScene extends Phaser.Scene {
       }
       
       this.hud.update(session);
-      this.persistSession();
+      this.stateManager.persistSession();
     }
-  }
-
-  private persistSession() {
-    saveSession(this.session);
   }
 }
