@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import type { GameSession } from '../../../lib';
 import { BoardController } from './board/BoardController';
 import { MenuController } from './menu/MenuController';
+import { NewPlayerController } from './menu/NewPlayerController';
+import { PlayerSelectionController } from './menu/PlayerSelectionController';
 import { HudController } from './hud/HudController';
 import { ChallengeController } from './challenge/ChallengeController';
 import { LevelOverlayController } from './level/LevelOverlayController';
@@ -19,6 +21,8 @@ export class MainScene extends Phaser.Scene {
 
   // Controllers
   private menu!: MenuController;
+  private newPlayerScreen?: NewPlayerController;
+  private playerSelectionScreen?: PlayerSelectionController;
   private board!: BoardController;
   private hud!: HudController;
   private challenge!: ChallengeController;
@@ -104,8 +108,8 @@ export class MainScene extends Phaser.Scene {
       getSession: () => this.stateManager.getSession(),
     });
     this.menu = new MenuController(this, {
-      onStart: (name) => this.startNewGame(name),
-      onContinue: () => this.continueSession(),
+      onStartAdventure: () => this.showNewPlayerScreen(),
+      onContinueJourney: () => this.showPlayerSelectionScreen(),
       getSession: () => this.stateManager.getSession(),
     });
 
@@ -116,6 +120,8 @@ export class MainScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
       this.input.keyboard?.off('keydown-M', this.handleMenuShortcut, this);
       this.menu.destroy();
+      this.newPlayerScreen?.destroy();
+      this.playerSelectionScreen?.destroy();
       this.hud.destroy();
       this.challenge.hide();
       this.levelOverlay.hide();
@@ -164,7 +170,14 @@ export class MainScene extends Phaser.Scene {
     this.shop.handleResize(width, height);
 
     if (this.stateManager.getPhase() === 'menu') {
-      this.showMenu();
+      // Re-render whichever menu screen is currently active
+      if (this.newPlayerScreen) {
+        this.newPlayerScreen.render();
+      } else if (this.playerSelectionScreen) {
+        this.playerSelectionScreen.render();
+      } else {
+        this.showMenu();
+      }
       return;
     }
 
@@ -192,21 +205,43 @@ export class MainScene extends Phaser.Scene {
     this.shop.setVisible(false);
     this.mob.stopMovement();
     this.mob.setVisible(false);
-    const session = this.stateManager.getSession();
-    if (session) {
-      this.menu.setPendingName(session.player.name);
-    }
+    this.newPlayerScreen?.destroy();
+    this.playerSelectionScreen?.destroy();
     this.menu.render();
+  }
+
+  private showNewPlayerScreen() {
+    this.menu.destroy();
+    this.playerSelectionScreen?.destroy();
+    
+    this.newPlayerScreen = new NewPlayerController(this, {
+      onCreatePlayer: (name) => this.startNewGame(name),
+      onBack: () => this.showMenu(),
+    });
+    this.newPlayerScreen.render();
+  }
+
+  private showPlayerSelectionScreen() {
+    this.menu.destroy();
+    this.newPlayerScreen?.destroy();
+    
+    this.playerSelectionScreen = new PlayerSelectionController(this, {
+      onPlayerSelected: () => this.continueSession(),
+      onBack: () => this.showMenu(),
+      getSession: () => this.stateManager.getSession(),
+    });
+    this.playerSelectionScreen.render();
   }
 
   private startNewGame(name: string) {
     const trimmed = name.trim();
     this.stateManager.createNewSession(trimmed);
     
-    this.menu.setPendingName(trimmed);
     this.challengeManager.clearChallengeState();
     this.stateManager.setPhase('play');
     this.menu.destroy();
+    this.newPlayerScreen?.destroy();
+    this.playerSelectionScreen?.destroy();
     this.board.setVisible(true);
     this.shop.setVisible(true);
     this.hud.render();
@@ -222,9 +257,10 @@ export class MainScene extends Phaser.Scene {
       return;
     }
 
-    this.menu.setPendingName(session.player.name);
     this.stateManager.setPhase('play');
     this.menu.destroy();
+    this.newPlayerScreen?.destroy();
+    this.playerSelectionScreen?.destroy();
     this.board.setVisible(true);
     this.shop.setVisible(true);
     this.mob.setVisible(true);
