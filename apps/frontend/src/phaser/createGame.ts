@@ -32,6 +32,7 @@ export function createGame(parent: HTMLElement): PhaserGameHandle {
     render: {
       pixelArt: false,
       antialias: true,
+      roundPixels: true,
     },
   });
   const canvas = game.canvas;
