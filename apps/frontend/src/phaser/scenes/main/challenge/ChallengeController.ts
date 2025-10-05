@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { MathChallenge, Tile } from '../../../../lib';
 import { ENCOURAGEMENTS } from '../constants';
+import { createNumberPad, type NumberPadControl } from './NumberPad';
 
 // Extended tile type that includes challenge data (for mobs)
 interface TileWithChallenge extends Tile {
@@ -27,6 +28,7 @@ interface ChallengeContext {
   attempts: number;
   inputValue: string;
   keydownHandler: (event: KeyboardEvent) => void;
+  numberPad?: NumberPadControl;
 }
 
 export class ChallengeController {
@@ -89,7 +91,7 @@ export class ChallengeController {
       .setOrigin(0.5, 0.5);
 
     const answerLabel = this.scene.add
-      .text(0, display.y + 70, 'Type your answer using the keyboard:', {
+      .text(0, display.y + 70, 'Your answer:', {
         fontFamily: 'Poppins, sans-serif',
         fontSize: '18px',
         color: '#9fb3d9',
@@ -107,7 +109,7 @@ export class ChallengeController {
       .setOrigin(0.5, 0.5);
 
     const feedbackText = this.scene.add
-      .text(0, answerText.y + 60, '', {
+      .text(0, answerText.y + 90, '', {
         fontFamily: 'Poppins, sans-serif',
         fontSize: '16px',
         color: '#ffe066',
@@ -176,6 +178,29 @@ export class ChallengeController {
       resetInput();
     };
 
+    const handleNumberPress = (num: string) => {
+      if (!context) return;
+      if (context.inputValue.length >= 6) return;
+      if (num === '-' && context.inputValue.length > 0) return; // Minus only at start
+      context.inputValue += num;
+      updateAnswerDisplay();
+    };
+
+    const handleBackspace = () => {
+      if (!context) return;
+      context.inputValue = context.inputValue.slice(0, -1);
+      updateAnswerDisplay();
+    };
+
+    // Create number pad
+    const numberPad = createNumberPad({
+      scene: this.scene,
+      y: answerText.y + 60,
+      onNumberPress: handleNumberPress,
+      onBackspace: handleBackspace,
+      onSubmit: attemptSubmit,
+    });
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!this.context) {
         return;
@@ -230,6 +255,7 @@ export class ChallengeController {
       display,
       answerLabel,
       answerText,
+      numberPad.container,
       feedbackText,
       hintText,
       submitButton,
@@ -248,6 +274,7 @@ export class ChallengeController {
       attempts: 0,
       inputValue: '',
       keydownHandler: handleKeyDown,
+      numberPad,
     };
 
     this.context = context;
