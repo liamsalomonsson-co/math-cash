@@ -1,11 +1,34 @@
 import Phaser from 'phaser';
 import { MainScene } from './scenes/main/MainScene';
+import { BubbleShooterTestScene } from './scenes/BubbleShooterTestScene';
 import type { PhaserGameHandle } from './types';
 
 const BASE_WIDTH = 640;
 const BASE_HEIGHT = 640;
 
+// Check for test mode via URL parameter (?test=bubble) or localStorage
+function getTestMode(): string | null {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlTest = urlParams.get('test');
+  if (urlTest) {
+    return urlTest;
+  }
+  return localStorage.getItem('mathcash_test_mode');
+}
+
 export function createGame(parent: HTMLElement): PhaserGameHandle {
+  const testMode = getTestMode();
+  
+  // Determine which scene to use
+  let initialScene: typeof MainScene | typeof BubbleShooterTestScene = MainScene;
+  let sceneName = 'MainScene';
+  
+  if (testMode === 'bubble') {
+    initialScene = BubbleShooterTestScene;
+    sceneName = 'BubbleShooterTestScene';
+    console.log('🎯 Running in BUBBLE SHOOTER TEST MODE');
+  }
+  
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
@@ -28,7 +51,7 @@ export function createGame(parent: HTMLElement): PhaserGameHandle {
     dom: {
       createContainer: true,
     },
-    scene: [MainScene],
+    scene: [initialScene],
     render: {
       pixelArt: false,
       antialias: true,
@@ -59,7 +82,7 @@ export function createGame(parent: HTMLElement): PhaserGameHandle {
   }
 
   const ensureSceneReady = () => {
-    const scene = game.scene.getScene('MainScene') as MainScene | undefined;
+    const scene = game.scene.getScene(sceneName) as MainScene | BubbleShooterTestScene | undefined;
     if (!scene) {
       return;
     }

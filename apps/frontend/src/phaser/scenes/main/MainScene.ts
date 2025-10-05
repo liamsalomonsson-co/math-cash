@@ -43,6 +43,7 @@ export class MainScene extends Phaser.Scene {
 
   preload() {
     this.load.image('wizard', '/assets/sprites/wizard.png');
+    this.load.image('crossbow', '/assets/sprites/crossbow.png');
     
     // Load mob sprite sheet - 4 sprites in a 2x2 grid (512x512 each in 1024x1024 image)
     this.load.spritesheet('mobs', '/assets/sprites/mobs.png', {

@@ -105,13 +105,18 @@ function generateMobs(
   // Randomly select positions for mobs
   const shuffledPositions = accessiblePositions.sort(() => Math.random() - 0.5);
   
+  // Map sprite frames to mob types
+  const mobTypes: ('slime' | 'skeleton' | 'orc' | 'bat')[] = ['slime', 'skeleton', 'orc', 'bat'];
+  
   for (let i = 0; i < Math.min(count, shuffledPositions.length); i++) {
     const pos = shuffledPositions[i];
+    const spriteFrame = randomInt(0, 3); // Random sprite frame (0-3)
     mobs.push({
       id: `mob-${Date.now()}-${i}-${randomInt(1000, 9999)}`,
       position: { ...pos },
       challenge: generateRegularChallenge(difficulty),
-      spriteFrame: randomInt(0, 3), // Random sprite frame (0-3)
+      spriteFrame,
+      type: mobTypes[spriteFrame], // Map frame to type: 0=slime, 1=skeleton, 2=orc, 3=bat
       isCompleted: false,
     });
   }

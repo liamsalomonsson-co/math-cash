@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
-import type { MathChallenge, Tile } from '../../../../lib';
+import type { MathChallenge, Tile, MobType } from '../../../../lib';
 import { ENCOURAGEMENTS } from '../constants';
 import { createNumberPad, type NumberPadControl } from './NumberPad';
+import { BubbleShooterMinigame } from './minigames/BubbleShooterMinigame';
 
 // Extended tile type that includes challenge data (for mobs)
 interface TileWithChallenge extends Tile {
   challenge?: MathChallenge;
   isCompleted?: boolean;
+  mobType?: MobType;
 }
 
 interface ChallengeCallbacks {
@@ -29,6 +31,7 @@ interface ChallengeContext {
   inputValue: string;
   keydownHandler: (event: KeyboardEvent) => void;
   numberPad?: NumberPadControl;
+  minigame?: BubbleShooterMinigame;
 }
 
 export class ChallengeController {
@@ -131,139 +134,212 @@ export class ChallengeController {
 
     let context!: ChallengeContext;
 
-    const updateAnswerDisplay = () => {
-      context.answerText.setText(context.inputValue.length > 0 ? context.inputValue : '—');
-    };
+    // Check if this is a slime mob - use minigame, otherwise use number pad
+    const isSlimeMob = tile.mobType === 'slime';
 
-    const resetInput = () => {
-      context.inputValue = '';
-      updateAnswerDisplay();
-    };
+    if (isSlimeMob) {
+      // Hide answer UI for minigames
+      answerLabel.setVisible(false);
+      answerText.setVisible(false);
 
-    const attemptSubmit = () => {
-      const trimmed = context.inputValue.trim();
-      if (!trimmed) {
-        context.feedbackText.setText('Please enter a number to submit!');
-        return;
-      }
+      // Calculate minigame bounds in absolute screen coordinates
+      // (minigame has its own container, not added to challenge container)
+      const minigameTop = centerY + display.y + 40;
+      const minigameHeight = panelHeight / 2 + 20;
+      const minigameLeft = centerX - panelWidth / 2;
+      
+      // Create bubble shooter minigame
+      const minigame = new BubbleShooterMinigame({
+        scene: this.scene,
+        challenge,
+        bounds: {
+          x: minigameLeft,
+          y: minigameTop,
+          width: panelWidth,
+          height: minigameHeight,
+        },
+        onCorrect: () => {
+          feedbackText.setText('Brilliant! 🎉');
+          callbacks.onSuccess(tile);
+          this.hide();
+        },
+        onIncorrect: () => {
+          const penalty = challenge.reward;
+          this.hide();
+          callbacks.onFailure(tile, penalty);
+        },
+      });
 
-      const numericAnswer = Number(trimmed);
-      if (!Number.isFinite(numericAnswer)) {
-        context.feedbackText.setText('That did not look like a number. Try again!');
-        return;
-      }
+      container.add([
+        scrim,
+        background,
+        title,
+        reward,
+        display,
+        feedbackText,
+        hintText,
+      ]);
 
-      context.attempts += 1;
+      // Don't add minigame objects to container - it manages its own container
+      // minigame.getGameObjects() are in the minigame's own container
 
-      if (numericAnswer === challenge.correctAnswer) {
-        context.feedbackText.setText('Brilliant! 🎉');
-        callbacks.onSuccess(tile);
-        this.hide();
-        return;
-      }
+      context = {
+        container,
+        scrim,
+        panel: background,
+        answerText,
+        feedbackText,
+        hintText,
+        tile,
+        challenge,
+        attempts: 0,
+        inputValue: '',
+        keydownHandler: () => {}, // No keyboard handler for minigame
+        numberPad: undefined,
+        minigame,
+      };
 
-      context.feedbackText.setText(ENCOURAGEMENTS[Math.min(context.attempts - 1, ENCOURAGEMENTS.length - 1)]);
-      if (context.attempts >= 2) {
-        // After 2 wrong attempts, trigger failure immediately
-        const penalty = challenge.reward;
-        this.hide();
-        callbacks.onFailure(tile, penalty);
-        return;
-      }
-      context.hintText.setText(callbacks.getHint(challenge));
-      context.hintText.setVisible(true);
-      resetInput();
-    };
+      this.context = context;
+    } else {
+      // Standard number pad challenge
+      const updateAnswerDisplay = () => {
+        context.answerText.setText(context.inputValue.length > 0 ? context.inputValue : '—');
+      };
 
-    const handleNumberPress = (num: string) => {
-      if (!context) return;
-      if (context.inputValue.length >= 6) return;
-      if (num === '-' && context.inputValue.length > 0) return; // Minus only at start
-      context.inputValue += num;
-      updateAnswerDisplay();
-    };
-
-    const handleBackspace = () => {
-      if (!context) return;
-      context.inputValue = context.inputValue.slice(0, -1);
-      updateAnswerDisplay();
-    };
-
-    // Create number pad
-    const numberPad = createNumberPad({
-      scene: this.scene,
-      y: answerText.y + 60,
-      onNumberPress: handleNumberPress,
-      onBackspace: handleBackspace,
-      onSubmit: attemptSubmit,
-    });
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!this.context) {
-        return;
-      }
-
-      const { key } = event;
-
-      if (key === 'Enter') {
-        event.preventDefault();
-        attemptSubmit();
-        return;
-      }
-
-      if (key === 'Backspace') {
-        event.preventDefault();
-        context.inputValue = context.inputValue.slice(0, -1);
+      const resetInput = () => {
+        context.inputValue = '';
         updateAnswerDisplay();
-        return;
-      }
+      };
 
-      if (/^[0-9]$/.test(key) || (key === '-' && context.inputValue.length === 0)) {
-        event.preventDefault();
-        if (context.inputValue.length >= 6) {
+      const attemptSubmit = () => {
+        const trimmed = context.inputValue.trim();
+        if (!trimmed) {
+          context.feedbackText.setText('Please enter a number to submit!');
           return;
         }
-        context.inputValue += key;
+
+        const numericAnswer = Number(trimmed);
+        if (!Number.isFinite(numericAnswer)) {
+          context.feedbackText.setText('That did not look like a number. Try again!');
+          return;
+        }
+
+        context.attempts += 1;
+
+        if (numericAnswer === challenge.correctAnswer) {
+          context.feedbackText.setText('Brilliant! 🎉');
+          callbacks.onSuccess(tile);
+          this.hide();
+          return;
+        }
+
+        context.feedbackText.setText(ENCOURAGEMENTS[Math.min(context.attempts - 1, ENCOURAGEMENTS.length - 1)]);
+        if (context.attempts >= 2) {
+          // After 2 wrong attempts, trigger failure immediately
+          const penalty = challenge.reward;
+          this.hide();
+          callbacks.onFailure(tile, penalty);
+          return;
+        }
+        context.hintText.setText(callbacks.getHint(challenge));
+        context.hintText.setVisible(true);
+        resetInput();
+      };
+
+      const handleNumberPress = (num: string) => {
+        if (!context) return;
+        if (context.inputValue.length >= 6) return;
+        if (num === '-' && context.inputValue.length > 0) return; // Minus only at start
+        context.inputValue += num;
         updateAnswerDisplay();
-      }
-    };
+      };
 
-    container.add([
-      scrim,
-      background,
-      title,
-      reward,
-      display,
-      answerLabel,
-      answerText,
-      numberPad.container,
-      feedbackText,
-      hintText,
-    ]);
+      const handleBackspace = () => {
+        if (!context) return;
+        context.inputValue = context.inputValue.slice(0, -1);
+        updateAnswerDisplay();
+      };
 
-    context = {
-      container,
-      scrim,
-      panel: background,
-      answerText,
-      feedbackText,
-      hintText,
-      tile,
-      challenge,
-      attempts: 0,
-      inputValue: '',
-      keydownHandler: handleKeyDown,
-      numberPad,
-    };
+      // Create number pad
+      const numberPad = createNumberPad({
+        scene: this.scene,
+        y: answerText.y + 60,
+        onNumberPress: handleNumberPress,
+        onBackspace: handleBackspace,
+        onSubmit: attemptSubmit,
+      });
 
-    this.context = context;
-    updateAnswerDisplay();
-    this.scene.input.keyboard?.on('keydown', handleKeyDown);
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (!this.context) {
+          return;
+        }
+
+        const { key } = event;
+
+        if (key === 'Enter') {
+          event.preventDefault();
+          attemptSubmit();
+          return;
+        }
+
+        if (key === 'Backspace') {
+          event.preventDefault();
+          context.inputValue = context.inputValue.slice(0, -1);
+          updateAnswerDisplay();
+          return;
+        }
+
+        if (/^[0-9]$/.test(key) || (key === '-' && context.inputValue.length === 0)) {
+          event.preventDefault();
+          if (context.inputValue.length >= 6) {
+            return;
+          }
+          context.inputValue += key;
+          updateAnswerDisplay();
+        }
+      };
+
+      container.add([
+        scrim,
+        background,
+        title,
+        reward,
+        display,
+        answerLabel,
+        answerText,
+        numberPad.container,
+        feedbackText,
+        hintText,
+      ]);
+
+      context = {
+        container,
+        scrim,
+        panel: background,
+        answerText,
+        feedbackText,
+        hintText,
+        tile,
+        challenge,
+        attempts: 0,
+        inputValue: '',
+        keydownHandler: handleKeyDown,
+        numberPad,
+      };
+
+      this.context = context;
+      updateAnswerDisplay();
+      this.scene.input.keyboard?.on('keydown', handleKeyDown);
+    }
   }
 
   hide() {
     if (this.context) {
       this.scene.input.keyboard?.off('keydown', this.context.keydownHandler);
+      if (this.context.minigame) {
+        this.context.minigame.destroy();
+        this.context.minigame = undefined;
+      }
       this.context.container.destroy(true);
       this.context = undefined;
     }

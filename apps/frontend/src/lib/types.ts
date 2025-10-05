@@ -12,6 +12,10 @@ export type DifficultyLevel = z.infer<typeof DifficultyLevel>;
 export const TileType = z.enum(['empty', 'challenge', 'boss', 'blocked']);
 export type TileType = z.infer<typeof TileType>;
 
+// Mob types that determine minigame and sprite
+export const MobType = z.enum(['slime', 'skeleton', 'orc', 'bat']);
+export type MobType = z.infer<typeof MobType>;
+
 // Player movement directions
 export const Direction = z.enum(['up', 'down', 'left', 'right']);
 export type Direction = z.infer<typeof Direction>;
@@ -51,6 +55,7 @@ export const Mob = z.object({
   id: z.string(),
   position: Position,
   challenge: MathChallenge,
+  type: MobType,
   spriteFrame: z.number().int().min(0).max(3), // 0-3 for the 4 mob sprites
   isCompleted: z.boolean().default(false),
 });

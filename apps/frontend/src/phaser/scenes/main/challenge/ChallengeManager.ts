@@ -85,6 +85,7 @@ export class ChallengeManager {
           isCompleted: mob.isCompleted,
           bossChallenge: undefined,
           isBossDefeated: false,
+          mobType: mob.type,
         };
         this.challengeController.present(tempTile, {
           onSuccess: () => this.completeMobChallenge(mob),
