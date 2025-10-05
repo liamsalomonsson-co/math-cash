@@ -67,6 +67,97 @@ export class BoardController {
     this.playerMarker.setPosition(tileRect.x, tileRect.y);
   }
 
+  /**
+   * Animate player swooshing back to start position with penalty text
+   */
+  animatePlayerResetToStart(fromPosition: Position, toPosition: Position, penalty: number, onComplete?: () => void) {
+    if (!this.playerMarker) {
+      onComplete?.();
+      return;
+    }
+
+    const fromRect = this.tileObjects.get(`${fromPosition.x},${fromPosition.y}`);
+    const toRect = this.tileObjects.get(`${toPosition.x},${toPosition.y}`);
+    
+    if (!fromRect || !toRect) {
+      onComplete?.();
+      return;
+    }
+
+    // Show penalty text at current position
+    const penaltyText = this.scene.add.text(fromRect.x, fromRect.y, `-${penalty}`, {
+      fontFamily: 'Poppins, sans-serif',
+      fontSize: '28px',
+      color: '#ff6b6b',
+      fontStyle: 'bold',
+      stroke: '#4a0e0e',
+      strokeThickness: 4,
+    });
+    penaltyText.setOrigin(0.5, 0.5);
+    penaltyText.setDepth(11);
+    
+    // Animate penalty text upward and fade
+    this.scene.tweens.add({
+      targets: penaltyText,
+      y: fromRect.y - this.tileSize * 1.5,
+      alpha: 0,
+      scale: { from: 0.8, to: 1.2 },
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => penaltyText.destroy(),
+    });
+
+    // Swoosh player back to start with arc motion
+    const duration = 800;
+    const spriteSize = this.tileSize * 0.8; // Same as renderPlayerMarker
+
+    // Create a path for the arc
+    this.scene.tweens.add({
+      targets: this.playerMarker,
+      x: { from: fromRect.x, to: toRect.x },
+      y: { from: fromRect.y, to: toRect.y },
+      duration: duration,
+      ease: 'Cubic.InOut',
+      onUpdate: (tween) => {
+        // Calculate arc position
+        const progress = tween.progress;
+        const x = fromRect.x + (toRect.x - fromRect.x) * progress;
+        const y = fromRect.y + (toRect.y - fromRect.y) * progress;
+        
+        // Add vertical offset for arc (parabola)
+        const arcHeight = this.tileSize * 2;
+        const yOffset = -arcHeight * Math.sin(progress * Math.PI);
+        
+        this.playerMarker?.setPosition(x, y + yOffset);
+      },
+      onComplete: () => {
+        // Ensure final position is exact
+        this.playerMarker?.setPosition(toRect.x, toRect.y);
+        // Reset angle to 0
+        this.playerMarker?.setAngle(0);
+        onComplete?.();
+      }
+    });
+
+    // Add size effect during swoosh using displayWidth/displayHeight instead of scale
+    this.scene.tweens.add({
+      targets: this.playerMarker,
+      displayWidth: { from: spriteSize, to: spriteSize * 0.6 },
+      displayHeight: { from: spriteSize, to: spriteSize * 0.6 },
+      duration: duration / 2,
+      ease: 'Sine.InOut',
+      yoyo: true,
+    });
+
+    // Add rotation for swoosh effect
+    this.scene.tweens.add({
+      targets: this.playerMarker,
+      angle: { from: 0, to: 360 },
+      duration: duration,
+      ease: 'Power2',
+    });
+  }
+
   getTileRect(position: Position): Phaser.GameObjects.Rectangle | undefined {
     return this.tileObjects.get(`${position.x},${position.y}`);
   }

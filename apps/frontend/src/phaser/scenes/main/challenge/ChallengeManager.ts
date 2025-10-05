@@ -140,6 +140,9 @@ export class ChallengeManager {
       return;
     }
 
+    // Store current position before resetting
+    const currentPosition = { ...session.player.currentPosition };
+
     // Deduct coins (never go below 0)
     this.stateManager.deductCurrency(penalty);
     
@@ -151,11 +154,14 @@ export class ChallengeManager {
     this.stateManager.resetStreak();
     
     this.board.refreshTiles(session.currentMap, session.player.currentPosition);
-    this.board.updatePlayerMarker(session.player.currentPosition);
-    this.stateManager.persistSession();
-    this.clearChallengeState();
-    this.mobController.resumeMovement();
-    this.callbacks.onChallengeComplete();
+    
+    // Animate player swooshing back to start with penalty text
+    this.board.animatePlayerResetToStart(currentPosition, session.currentMap.startPosition, penalty, () => {
+      this.stateManager.persistSession();
+      this.clearChallengeState();
+      this.mobController.resumeMovement();
+      this.callbacks.onChallengeComplete();
+    });
   }
 
   /**
