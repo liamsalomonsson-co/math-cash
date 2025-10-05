@@ -99,10 +99,10 @@ export class ChallengeController {
     const answerText = this.scene.add
       .text(0, answerLabel.y + 40, '—', {
         fontFamily: 'Poppins, sans-serif',
-        fontSize: '32px',
+        fontSize: '42px', // Increased from 32px for better mobile visibility
         color: '#ffd166',
         backgroundColor: 'rgba(255,255,255,0.08)',
-        padding: { x: 16, y: 8 },
+        padding: { x: 24, y: 12 }, // Increased padding for larger touch area
       })
       .setOrigin(0.5, 0.5);
 
@@ -283,7 +283,7 @@ export class ChallengeController {
     options?: { backgroundColor?: number; textColor?: string; alpha?: number },
   ) {
     const width = Math.min((this.scene.scale.width || 640) * 0.4, 220);
-    const height = 56;
+    const height = 72; // Increased from 56px for better mobile touch target (min 44px)
     const container = this.scene.add.container(x, y);
     const backgroundColor = options?.backgroundColor ?? 0x4895ef;
     const alpha = options?.alpha ?? 0.95;
@@ -297,7 +297,7 @@ export class ChallengeController {
     const text = this.scene.add
       .text(0, 0, label, {
         fontFamily: 'Poppins, sans-serif',
-        fontSize: '20px',
+        fontSize: '22px', // Increased from 20px for better mobile readability
         color: textColor,
       })
       .setOrigin(0.5, 0.5);

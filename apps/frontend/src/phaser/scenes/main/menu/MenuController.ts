@@ -143,7 +143,7 @@ export class MenuController {
     }
 
     const hint = this.scene.add
-      .text(0, panelHeight / 2 - 50, 'Tip: Use arrow keys or WASD once the game starts. Press M to return here.', {
+      .text(0, panelHeight / 2 - 50, 'Tip: Swipe or use arrow keys to move. Press M to return here.', {
         fontFamily: 'Poppins, sans-serif',
         fontSize: '16px',
         color: '#9fb3d9',

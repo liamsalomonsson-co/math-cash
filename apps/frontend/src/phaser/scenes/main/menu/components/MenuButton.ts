@@ -35,7 +35,7 @@ export function createMenuButton(scene: Phaser.Scene, config: MenuButtonConfig):
   } = config;
 
   const width = explicitWidth ?? Math.min((scene.scale.width || 640) * 0.7, 420);
-  const height = 72;
+  const height = 80; // Increased from 72px for better mobile touch target (min 44px recommended)
 
   const container = scene.add.container(0, y);
 
@@ -51,7 +51,7 @@ export function createMenuButton(scene: Phaser.Scene, config: MenuButtonConfig):
   const labelText = scene.add
     .text(0, 0, label, {
       fontFamily: 'Poppins, sans-serif',
-      fontSize: '26px',
+      fontSize: '28px', // Increased from 26px for better mobile readability
       fontStyle: 'bold',
       color: textColor,
     })

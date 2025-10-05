@@ -76,6 +76,13 @@ export class MobController {
   }
 
   /**
+   * Set visibility of all mob sprites
+   */
+  setVisible(visible: boolean) {
+    this.mobSprites.forEach((sprite) => sprite.setVisible(visible));
+  }
+
+  /**
    * Update mob sprite visibility based on completion status
    */
   updateMobVisibility(map: TileMap) {

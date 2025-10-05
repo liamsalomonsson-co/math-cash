@@ -19,7 +19,7 @@ export interface NameInputControl {
 
 export function createNameInput(scene: Phaser.Scene, options: NameInputOptions): NameInputControl {
   const { y, width, initialValue, onInput, onSubmit } = options;
-  const height = 56;
+  const height = 64; // Increased from 56px for better mobile touch target
   
   const container = scene.add.container(0, y);
 
@@ -41,8 +41,8 @@ export function createNameInput(scene: Phaser.Scene, options: NameInputOptions):
   Object.assign(input.style, {
     width: `${width}px`,
     height: `${height}px`,
-    padding: '14px 18px',
-    fontSize: '20px',
+    padding: '16px 20px', // Increased padding for better touch target
+    fontSize: '22px', // Increased from 20px for better mobile readability
     border: 'none',
     outline: 'none',
     textAlign: 'center',
@@ -95,7 +95,7 @@ export function createNameInput(scene: Phaser.Scene, options: NameInputOptions):
   };
 
   const setWidth = (nextWidth: number) => {
-    const nextHeight = 56;
+    const nextHeight = 64; // Match increased height
     container.setSize(nextWidth, nextHeight);
     background.setSize(nextWidth, nextHeight);
     const inputElement = dom.node as HTMLInputElement;

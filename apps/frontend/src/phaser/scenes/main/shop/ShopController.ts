@@ -88,21 +88,21 @@ export class ShopController {
     const container = this.scene.add.container(buttonX, buttonY);
     container.setDepth(15);
 
-    // Button background
-    const background = this.scene.add.rectangle(0, 0, 50, 80, 0x4cc9f0, 0.9);
-    background.setStrokeStyle(2, 0xffffff, 0.6);
+    // Button background - increased size for better mobile touch target (min 44x44px)
+    const background = this.scene.add.rectangle(0, 0, 70, 100, 0x4cc9f0, 0.9);
+    background.setStrokeStyle(3, 0xffffff, 0.6);
     background.setOrigin(0, 0.5);
 
-    // Shop icon
-    const icon = this.scene.add.text(25, -10, '🛒', {
-      fontSize: '28px',
+    // Shop icon - larger for mobile
+    const icon = this.scene.add.text(35, -12, '🛒', {
+      fontSize: '36px', // Increased from 28px
     });
     icon.setOrigin(0.5);
 
-    // Label
-    const label = this.scene.add.text(25, 18, 'SHOP', {
+    // Label - larger text
+    const label = this.scene.add.text(35, 24, 'SHOP', {
       fontFamily: 'Poppins, sans-serif',
-      fontSize: '11px',
+      fontSize: '14px', // Increased from 11px
       color: '#ffffff',
       fontStyle: 'bold',
     });

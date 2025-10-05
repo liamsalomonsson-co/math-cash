@@ -200,6 +200,7 @@ export class MainScene extends Phaser.Scene {
     this.levelOverlay.hide();
     this.shop.setVisible(false);
     this.mob.stopMovement();
+    this.mob.setVisible(false);
     if (this.session) {
       this.menu.setPendingName(this.session.player.name);
     }
@@ -255,6 +256,7 @@ export class MainScene extends Phaser.Scene {
     this.menu.destroy();
     this.board.setVisible(true);
     this.shop.setVisible(true);
+    this.mob.setVisible(true);
     this.hud.render();
     this.hud.setVisible(true);
     this.pendingRebuild = true;

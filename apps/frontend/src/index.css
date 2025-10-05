@@ -9,6 +9,12 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+  
+  /* Safe area insets for notched devices */
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
 }
 
 * {
@@ -18,15 +24,33 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: -webkit-fill-available; /* iOS Safari fix */
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* Prevent text selection on touch devices */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  /* Prevent touch callouts on iOS */
+  -webkit-touch-callout: none;
+  /* Prevent pull-to-refresh */
+  overscroll-behavior-y: contain;
+}
+
+html {
+  height: -webkit-fill-available; /* iOS Safari fix */
 }
 
 #root {
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32px;
+  padding-top: max(32px, var(--safe-area-inset-top));
+  padding-right: max(32px, var(--safe-area-inset-right));
+  padding-bottom: max(32px, var(--safe-area-inset-bottom));
+  padding-left: max(32px, var(--safe-area-inset-left));
 }
 
 .game-container {
@@ -59,6 +83,10 @@ body {
 @media (max-width: 640px) {
   #root {
     padding: 16px;
+    padding-top: max(16px, var(--safe-area-inset-top));
+    padding-right: max(16px, var(--safe-area-inset-right));
+    padding-bottom: max(16px, var(--safe-area-inset-bottom));
+    padding-left: max(16px, var(--safe-area-inset-left));
   }
 
   .game-container {
