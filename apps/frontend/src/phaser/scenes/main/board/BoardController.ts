@@ -103,8 +103,16 @@ export class BoardController {
       return 0;
     }
 
-    const usableEdge = Math.max(shortestScreenEdge - TILE_GAP, 0);
-    const rawSize = Math.floor(usableEdge / maxTiles);
+    // Check actual parent size to determine if mobile (parent < 500px means mobile device)
+    const isMobile = (parentWidth > 0 && parentWidth < 500) || (scaleWidth > 0 && scaleWidth < 500);
+    
+    // Use effective screen space for tile calculation
+    // Values > 1.0 work because tiles are centered and can overlap HUD margins
+    // Mobile: 1.3x gives bigger tiles that fit well with compact HUD
+    // Desktop: 0.80 leaves comfortable room for full HUD
+    const usablePercentage = isMobile ? 1.3 : 0.80;
+    const availableSpace = Math.floor(shortestScreenEdge * usablePercentage);
+    const rawSize = Math.floor(availableSpace / maxTiles);
     return Math.max(rawSize, 4);
   }
 

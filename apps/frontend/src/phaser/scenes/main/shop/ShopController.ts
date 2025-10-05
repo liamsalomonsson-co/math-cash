@@ -82,27 +82,40 @@ export class ShopController {
   }
 
   private createShopButton() {
+    const canvas = this.scene.game.canvas;
+    const parent = canvas?.parentElement;
+    const actualWidth = parent?.clientWidth ?? this.scene.scale.width;
+    const isMobile = actualWidth < 500;
+    
+    // Scale button based on screen size
+    const buttonWidth = isMobile ? 50 : 70;
+    const buttonHeight = isMobile ? 70 : 100;
+    const iconSize = isMobile ? '24px' : '36px';
+    const labelSize = isMobile ? '10px' : '14px';
+    const iconY = isMobile ? -8 : -12;
+    const labelY = isMobile ? 16 : 24;
+    
     const buttonX = 10;
-    const buttonY = 100;
+    const buttonY = isMobile ? 80 : 100;
 
     const container = this.scene.add.container(buttonX, buttonY);
     container.setDepth(15);
 
-    // Button background - increased size for better mobile touch target (min 44x44px)
-    const background = this.scene.add.rectangle(0, 0, 70, 100, 0x4cc9f0, 0.9);
-    background.setStrokeStyle(3, 0xffffff, 0.6);
+    // Button background - responsive size for mobile
+    const background = this.scene.add.rectangle(0, 0, buttonWidth, buttonHeight, 0x4cc9f0, 0.9);
+    background.setStrokeStyle(isMobile ? 2 : 3, 0xffffff, 0.6);
     background.setOrigin(0, 0.5);
 
-    // Shop icon - larger for mobile
-    const icon = this.scene.add.text(35, -12, '🛒', {
-      fontSize: '36px', // Increased from 28px
+    // Shop icon - responsive size
+    const icon = this.scene.add.text(buttonWidth / 2, iconY, '🛒', {
+      fontSize: iconSize,
     });
     icon.setOrigin(0.5);
 
-    // Label - larger text
-    const label = this.scene.add.text(35, 24, 'SHOP', {
+    // Label - responsive text
+    const label = this.scene.add.text(buttonWidth / 2, labelY, 'SHOP', {
       fontFamily: 'Poppins, sans-serif',
-      fontSize: '14px', // Increased from 11px
+      fontSize: labelSize,
       color: '#ffffff',
       fontStyle: 'bold',
     });
@@ -339,16 +352,21 @@ export class ShopController {
     this.overlay = undefined;
   }
 
-  handleResize(_width: number, _height: number) {
-    // Reposition shop button to fixed position
-    if (this.shopButton) {
-      this.shopButton.setPosition(10, 100);
+  handleResize(width: number, height: number) {
+    // Recreate shop button with new responsive sizing
+    this.shopButton?.destroy(true);
+    this.createShopButton();
+    
+    if (!this.container) {
+      return;
     }
 
-    // If shop is open, close and reopen to adjust to new size
-    if (this.isOpen) {
-      this.hide();
-      this.show();
-    }
+    // Update shop modal if open
+    const overlay = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
+    overlay.setDepth(25);
+    this.overlay?.destroy();
+    this.overlay = overlay;
+
+    this.container.setPosition(width / 2, height / 2);
   }
 }
