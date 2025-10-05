@@ -37,7 +37,6 @@ export class MainScene extends Phaser.Scene {
   private mob!: MobController;
 
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
-  private wasdKeys?: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
 
   constructor() {
     super('MainScene');
@@ -73,22 +72,12 @@ export class MainScene extends Phaser.Scene {
     });
 
     this.cursors = this.input.keyboard?.createCursorKeys();
-    this.wasdKeys = this.input.keyboard?.addKeys({
-      W: Phaser.Input.Keyboard.KeyCodes.W,
-      A: Phaser.Input.Keyboard.KeyCodes.A,
-      S: Phaser.Input.Keyboard.KeyCodes.S,
-      D: Phaser.Input.Keyboard.KeyCodes.D,
-    }) as Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key> | undefined;
 
     this.input.keyboard?.addCapture([
       Phaser.Input.Keyboard.KeyCodes.UP,
       Phaser.Input.Keyboard.KeyCodes.DOWN,
       Phaser.Input.Keyboard.KeyCodes.LEFT,
       Phaser.Input.Keyboard.KeyCodes.RIGHT,
-      Phaser.Input.Keyboard.KeyCodes.W,
-      Phaser.Input.Keyboard.KeyCodes.A,
-      Phaser.Input.Keyboard.KeyCodes.S,
-      Phaser.Input.Keyboard.KeyCodes.D,
     ]);
 
     this.input.keyboard?.on('keydown-M', this.handleMenuShortcut, this);
@@ -264,13 +253,6 @@ export class MainScene extends Phaser.Scene {
       if (right && JustDown(right)) return 'right';
       if (up && JustDown(up)) return 'up';
       if (down && JustDown(down)) return 'down';
-    }
-
-    if (this.wasdKeys) {
-      if (JustDown(this.wasdKeys.A)) return 'left';
-      if (JustDown(this.wasdKeys.D)) return 'right';
-      if (JustDown(this.wasdKeys.W)) return 'up';
-      if (JustDown(this.wasdKeys.S)) return 'down';
     }
 
     return null;
