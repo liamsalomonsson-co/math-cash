@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { createOnScreenKeyboard, type OnScreenKeyboardControl } from './OnScreenKeyboard';
 
 interface NameInputOptions {
   y: number;
@@ -6,6 +7,7 @@ interface NameInputOptions {
   initialValue: string;
   onInput(value: string): void;
   onSubmit(): void;
+  parentContainer?: Phaser.GameObjects.Container;
 }
 
 export interface NameInputControl {
@@ -17,7 +19,7 @@ export interface NameInputControl {
 }
 
 export function createNameInput(scene: Phaser.Scene, options: NameInputOptions): NameInputControl {
-  const { y, width, initialValue, onInput, onSubmit } = options;
+  const { y, width, initialValue, onInput, onSubmit, parentContainer } = options;
   const height = 64;
   
   const container = scene.add.container(0, y);
@@ -56,6 +58,7 @@ export function createNameInput(scene: Phaser.Scene, options: NameInputOptions):
 
   let isActive = false;
   let cursorTween: Phaser.Tweens.Tween | null = null;
+  let onScreenKeyboard: OnScreenKeyboardControl | null = null;
 
   const updateDisplay = () => {
     displayText.setText(currentValue);
@@ -69,6 +72,38 @@ export function createNameInput(scene: Phaser.Scene, options: NameInputOptions):
     isActive = true;
     background.setStrokeStyle(3, 0x4cc9f0, 0.8);
     cursor.setVisible(true);
+    
+    // Always show on-screen keyboard for testing
+    if (!onScreenKeyboard) {
+      // Calculate absolute Y position for keyboard
+      // The keyboard needs to be positioned in world coordinates
+      const containerY = parentContainer ? parentContainer.y : 0;
+      const absoluteY = containerY + y + height / 2 + 4;
+      
+      onScreenKeyboard = createOnScreenKeyboard({
+        scene,
+        y: absoluteY,
+        onKeyPress: (key: string) => {
+          if (currentValue.length < 20) {
+            currentValue += key;
+            onInput(currentValue);
+            updateDisplay();
+          }
+        },
+        onBackspace: () => {
+          if (currentValue.length > 0) {
+            currentValue = currentValue.slice(0, -1);
+            onInput(currentValue);
+            updateDisplay();
+          }
+        },
+        onSubmit: () => {
+          deactivate();
+          onSubmit();
+        },
+      });
+      onScreenKeyboard.show();
+    }
     
     // Blinking cursor animation
     cursorTween = scene.tweens.add({
@@ -87,6 +122,17 @@ export function createNameInput(scene: Phaser.Scene, options: NameInputOptions):
     isActive = false;
     background.setStrokeStyle(2, 0x4cc9f0, 0.4);
     cursor.setVisible(false);
+    
+    // Hide on-screen keyboard
+    if (onScreenKeyboard) {
+      onScreenKeyboard.hide();
+      setTimeout(() => {
+        if (onScreenKeyboard) {
+          onScreenKeyboard.destroy();
+          onScreenKeyboard = null;
+        }
+      }, 250);
+    }
     
     if (cursorTween) {
       cursorTween.stop();
@@ -153,6 +199,10 @@ export function createNameInput(scene: Phaser.Scene, options: NameInputOptions):
     if (cursorTween) {
       cursorTween.stop();
       cursorTween = null;
+    }
+    if (onScreenKeyboard) {
+      onScreenKeyboard.destroy();
+      onScreenKeyboard = null;
     }
     scene.input.keyboard?.off('keydown', handleKeyDown);
     background.off('pointerdown');

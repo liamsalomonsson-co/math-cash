@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { MENU_BG_COLOR, MENU_BORDER_COLOR, MENU_BUTTON_COLOR, MENU_BUTTON_DISABLED } from '../constants';
-import { createMenuButton, createNameInput, MenuButtonControl, NameInputControl } from './components';
+import { MENU_BG_COLOR, MENU_BORDER_COLOR } from '../constants';
+import { createMenuButton, createNameInput, NameInputControl } from './components';
 
 interface NewPlayerOptions {
   onCreatePlayer(name: string): void;
@@ -15,7 +15,6 @@ export class NewPlayerController {
   private container?: Phaser.GameObjects.Container;
   private nameInput?: NameInputControl;
   private errorText?: Phaser.GameObjects.Text;
-  private createButton?: MenuButtonControl;
   private pendingName = '';
 
   constructor(
@@ -28,7 +27,6 @@ export class NewPlayerController {
     this.container?.destroy(true);
     this.container = undefined;
     this.errorText = undefined;
-    this.createButton = undefined;
   }
 
   render() {
@@ -39,7 +37,7 @@ export class NewPlayerController {
 
     const container = this.scene.add.container(width / 2, height / 2);
     const panelWidth = Math.min(width * 0.85, 540);
-    const panelHeight = Math.min(height * 0.75, 500);
+    const panelHeight = Math.min(height * 0.9, 600); // Increased height for keyboard
     const contentWidth = Math.min(width * 0.7, 420);
 
     const panel = this.scene.add.rectangle(0, 0, panelWidth, panelHeight, MENU_BG_COLOR, 0.92);
@@ -67,10 +65,10 @@ export class NewPlayerController {
       y: nameInputY,
       width: contentWidth,
       initialValue: this.pendingName,
+      parentContainer: container,
       onInput: (value) => {
         this.pendingName = value;
         this.setError();
-        this.updateCreateButtonState();
       },
       onSubmit: () => this.handleCreateButton(),
     });
@@ -87,21 +85,9 @@ export class NewPlayerController {
       .setVisible(false);
     this.errorText = errorText;
 
-    const createButtonY = errorY + 70;
-    const createButton = createMenuButton(this.scene, {
-      label: 'Begin Adventure',
-      y: createButtonY,
-      onClick: () => this.handleCreateButton(),
-      disabled: !this.hasValidName(),
-      fillColor: MENU_BUTTON_COLOR,
-      disabledFillColor: MENU_BUTTON_DISABLED,
-      textColor: '#ffffff',
-      glowColor: 0x9bc9ff,
-      width: contentWidth,
-    });
-    this.createButton = createButton;
-
-    const backButtonY = createButtonY + 86;
+    // Position back button below the keyboard space
+    const keyboardSpace = 300; // Space reserved for keyboard
+    const backButtonY = nameInputY + keyboardSpace;
     const backButton = createMenuButton(this.scene, {
       label: '← Back to Menu',
       y: backButtonY,
@@ -120,15 +106,12 @@ export class NewPlayerController {
       subtitle,
       nameInput.container,
       errorText,
-      createButton.container,
       backButton.container,
     ]);
 
-    container.bringToTop(createButton.container);
     container.bringToTop(backButton.container);
 
     this.container = container;
-    this.updateCreateButtonState();
   }
 
   private detachNameInput() {
@@ -159,19 +142,10 @@ export class NewPlayerController {
     const name = this.pendingName.trim();
     if (!name) {
       this.setError('Please enter your name to begin.');
-      this.updateCreateButtonState();
       return;
     }
 
     this.setError();
     this.options.onCreatePlayer(name);
-  }
-
-  private hasValidName(): boolean {
-    return this.pendingName.trim().length > 0;
-  }
-
-  private updateCreateButtonState() {
-    this.createButton?.setDisabled(!this.hasValidName());
   }
 }
