@@ -129,9 +129,6 @@ export class ChallengeController {
       .setOrigin(0.5, 0.5)
       .setVisible(false);
 
-    const buttonsY = hintText.y + 70;
-    const buttonOffset = Math.min(panelWidth * 0.25, 120);
-
     let context!: ChallengeContext;
 
     const updateAnswerDisplay = () => {
@@ -214,13 +211,6 @@ export class ChallengeController {
         return;
       }
 
-      if (key === 'Escape') {
-        event.preventDefault();
-        this.hide();
-        callbacks.onCancel(tile);
-        return;
-      }
-
       if (key === 'Backspace') {
         event.preventDefault();
         context.inputValue = context.inputValue.slice(0, -1);
@@ -238,15 +228,6 @@ export class ChallengeController {
       }
     };
 
-    const submitButton = this.createOverlayButton('Submit Answer ✨', -buttonOffset, buttonsY, attemptSubmit);
-    const cancelButton = this.createOverlayButton('Cancel', buttonOffset, buttonsY, () => {
-      this.hide();
-      callbacks.onCancel(tile);
-    }, {
-      backgroundColor: 0xe9ecef,
-      textColor: '#1d3557',
-    });
-
     container.add([
       scrim,
       background,
@@ -258,8 +239,6 @@ export class ChallengeController {
       numberPad.container,
       feedbackText,
       hintText,
-      submitButton,
-      cancelButton,
     ]);
 
     context = {
@@ -300,55 +279,6 @@ export class ChallengeController {
     scrim.setSize(width, height);
     scrim.setDisplaySize(width, height);
     container.setPosition(width / 2, height / 2);
-  }
-
-  private createOverlayButton(
-    label: string,
-    x: number,
-    y: number,
-    handler: () => void,
-    options?: { backgroundColor?: number; textColor?: string; alpha?: number },
-  ) {
-    const width = Math.min((this.scene.scale.width || 640) * 0.4, 220);
-    const height = 72; // Increased from 56px for better mobile touch target (min 44px)
-    const container = this.scene.add.container(x, y);
-    const backgroundColor = options?.backgroundColor ?? 0x4895ef;
-    const alpha = options?.alpha ?? 0.95;
-    const textColor = options?.textColor ?? '#ffffff';
-
-    const background = this.scene.add.rectangle(0, 0, width, height, backgroundColor, alpha);
-    background.setOrigin(0.5, 0.5);
-    background.setStrokeStyle(2, 0xffffff, 0.25);
-    background.setInteractive({ useHandCursor: true });
-
-    const text = this.scene.add
-      .text(0, 0, label, {
-        fontFamily: 'Poppins, sans-serif',
-        fontSize: '22px', // Increased from 20px for better mobile readability
-        color: textColor,
-      })
-      .setOrigin(0.5, 0.5);
-
-    container.add([background, text]);
-    container.setSize(width, height);
-
-    background.on('pointerover', () => {
-      background.setAlpha(Math.min(1, alpha + 0.1));
-    });
-    background.on('pointerout', () => {
-      background.setAlpha(alpha);
-      background.setScale(1);
-    });
-    background.on('pointerdown', () => {
-      background.setScale(0.97);
-    });
-    background.on('pointerup', () => {
-      background.setScale(1);
-      handler();
-    });
-    background.on('pointerupoutside', () => background.setScale(1));
-
-    return container;
   }
 
   private formatChallenge(operation: MathChallenge['operation'], operands: number[]): string {
