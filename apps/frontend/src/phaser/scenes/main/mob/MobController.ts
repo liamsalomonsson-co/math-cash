@@ -104,8 +104,8 @@ export class MobController {
         // Stop any ongoing tweens on the sprite to prevent position conflicts
         this.scene.tweens.killTweensOf(sprite);
         
-        // Play explosion animation before destroying
-        this.playExplosionAnimation(explosionX, explosionY);
+        // Play explosion animation with coin reward before destroying
+        this.playExplosionAnimation(explosionX, explosionY, mob.challenge.reward);
         sprite.destroy();
         this.mobSprites.delete(mob.id);
         
@@ -122,7 +122,7 @@ export class MobController {
   /**
    * Play an explosion animation at the specified position
    */
-  private playExplosionAnimation(x: number, y: number) {
+  private playExplosionAnimation(x: number, y: number, coinReward: number) {
     // Create multiple particles expanding outward
     const colors = [0xffd166, 0xff6b6b, 0xff8c42, 0xffa726, 0xffb74d];
     const particleCount = 12;
@@ -177,6 +177,29 @@ export class MobController {
       duration: 1200,
       ease: 'Cubic.Out',
       onComplete: () => wave.destroy(),
+    });
+
+    // Coin reward text
+    const rewardText = this.scene.add.text(x, y, `+${coinReward}`, {
+      fontFamily: 'Poppins, sans-serif',
+      fontSize: '28px',
+      color: '#51cf66',
+      fontStyle: 'bold',
+      stroke: '#1b4332',
+      strokeThickness: 4,
+    });
+    rewardText.setOrigin(0.5, 0.5);
+    rewardText.setDepth(11);
+    
+    // Animate reward text upward and fade
+    this.scene.tweens.add({
+      targets: rewardText,
+      y: y - this.tileSize * 1.5,
+      alpha: 0,
+      scale: { from: 0.8, to: 1.2 },
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => rewardText.destroy(),
     });
   }
 
